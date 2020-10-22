@@ -24,7 +24,7 @@ type LoginResponse struct {
 }
 
 type SignUpRequest struct {
-	Fullname        string `json:"full_name" form:"bambang_sadikin" binding:"required"`
+	Fullname        string `json:"full_name" binding:"required"`
 	Email           string `json:"email" binding:"required"`
 	Passowrd        string `json:"password" binding:"required"`
 	ConfirmPassword string `json:"confirm_password" binding:"required,eqfield=Passowrd"`

@@ -3,7 +3,6 @@ package usecase
 import (
 	"crypto/rand"
 	"errors"
-	"fmt"
 	"io"
 	"log"
 	"os"
@@ -70,12 +69,16 @@ func (uc AuthUsecase) SignUp(account domain.Account, profile domain.Profile) (*d
 	//create salt
 	var err error
 	account.Salt, err = uc.generateSalt()
-	fmt.Println(string(account.Salt))
 	if err != nil {
 		return nil, nil, err
 	}
 
 	account.Password, err = uc.hashPassword([]byte(account.Password), account.Salt)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	account.EmailToken, err = uc.createEmailVerificationToken(account)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -128,4 +131,18 @@ func (uc AuthUsecase) comparePassword(passwordInput, salt, storedPassword []byte
 	}
 
 	return nil, true
+}
+
+func (uc AuthUsecase) createEmailVerificationToken(account domain.Account) (string, error) {
+	claims := jwt.MapClaims{}
+	claims["email"] = account.Email
+	claims["exp"] = time.Now().Add(24 * time.Hour).Unix()
+
+	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	token, err := accessToken.SignedString([]byte(os.Getenv("JWT_SECRET")))
+	if err != nil {
+		return "", cerror.NewAndPrintWithTag("CEV99", err, global.FRIENDLY_MESSAGE)
+	}
+
+	return token, nil
 }

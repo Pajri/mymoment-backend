@@ -22,7 +22,7 @@ type MySqlUserRepository struct {
 }
 
 func (ur MySqlUserRepository) GetAccount(filter domain.AccountFilter) (*domain.Account, error) {
-	query := sq.Select("account_id, password, email, salt").
+	query := sq.Select("account_id, password, email, salt, email_token, is_verified").
 		From("account")
 
 	if filter.Email != "" {
@@ -37,7 +37,14 @@ func (ur MySqlUserRepository) GetAccount(filter domain.AccountFilter) (*domain.A
 	row := ur.Db.QueryRow(sqlString, args...)
 
 	account := new(domain.Account)
-	err = row.Scan(&account.AccountID, &account.Password, &account.Email, &account.Salt)
+	err = row.Scan(
+		&account.AccountID,
+		&account.Password,
+		&account.Email,
+		&account.Salt,
+		&account.EmailToken,
+		&account.IsVerified,
+	)
 	if err != nil {
 		return nil, cerror.NewAndPrintWithTag("GA02", err, global.FRIENDLY_MESSAGE)
 	}
@@ -49,8 +56,21 @@ func (ur MySqlUserRepository) InsertAccount(account domain.Account) (*domain.Acc
 	account.AccountID = util.GenerateUUID()
 
 	query := sq.Insert("account").
-		Columns("account_id, email, password, salt").
-		Values(account.AccountID, account.Email, account.Password, account.Salt)
+		Columns(`
+			account_id, 
+			email, 
+			password, 
+			salt, 
+			email_token, 
+			is_verified`).
+		Values(
+			account.AccountID,
+			account.Email,
+			account.Password,
+			account.Salt,
+			account.EmailToken,
+			account.IsVerified,
+		)
 
 	sql, args, err := query.ToSql()
 	if err != nil {

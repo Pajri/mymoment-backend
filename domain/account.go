@@ -1,10 +1,12 @@
 package domain
 
 type Account struct {
-	AccountID string `json:"-"`
-	Password  string `json:"-"`
-	Email     string `json:"email"`
-	Salt      []byte `json:"-"`
+	AccountID  string `json:"-"`
+	Password   string `json:"-"`
+	Email      string `json:"email"`
+	Salt       []byte `json:"-"`
+	EmailToken string `json:"-"`
+	IsVerified bool   `json:"-"`
 }
 
 type IAccountRepository interface {
