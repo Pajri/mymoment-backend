@@ -31,7 +31,7 @@ func NewAuthUsecase(accountRepository domain.IAccountRepository, profileReposito
 }
 
 func (uc AuthUsecase) Login(account domain.Account) (string, error) {
-	filter := domain.AccountFilter{Username: account.Username}
+	filter := domain.AccountFilter{Email: account.Email}
 	regAccount, err := uc.accountRepo.GetAccount(filter)
 	if err != nil {
 		return "", err
@@ -42,7 +42,7 @@ func (uc AuthUsecase) Login(account domain.Account) (string, error) {
 	if regAccount != nil {
 		claims := jwt.MapClaims{}
 		claims["authorized"] = true
-		claims["user_id"] = regAccount.Username
+		claims["user_id"] = regAccount.Email
 		claims["exp"] = time.Now().Add(12 * time.Minute).Unix()
 
 		accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

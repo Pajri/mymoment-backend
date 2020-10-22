@@ -2,9 +2,9 @@ package mysql
 
 import (
 	"database/sql"
-	"fmt"
 
 	sq "github.com/Masterminds/squirrel"
+	"github.com/go-sql-driver/mysql"
 	"github.com/pajri/personal-backend/adapter/cerror"
 	"github.com/pajri/personal-backend/domain"
 	"github.com/pajri/personal-backend/global"
@@ -22,11 +22,11 @@ type MySqlUserRepository struct {
 }
 
 func (ur MySqlUserRepository) GetAccount(filter domain.AccountFilter) (*domain.Account, error) {
-	query := sq.Select("account_id, username, password, email").
+	query := sq.Select("account_id, password, email").
 		From("account")
 
-	if filter.Username != "" {
-		query = query.Where(sq.Eq{"username": filter.Username})
+	if filter.Email != "" {
+		query = query.Where(sq.Eq{"email": filter.Email})
 	}
 
 	sqlString, args, err := query.ToSql()
@@ -37,7 +37,7 @@ func (ur MySqlUserRepository) GetAccount(filter domain.AccountFilter) (*domain.A
 	row := ur.Db.QueryRow(sqlString, args...)
 
 	account := new(domain.Account)
-	err = row.Scan(&account.AccountID, &account.Username, &account.Password, &account.Email)
+	err = row.Scan(&account.AccountID, &account.Password, &account.Email)
 	if err != nil {
 		return nil, cerror.NewAndPrintWithTag("GA02", err, global.FRIENDLY_MESSAGE)
 	}
@@ -49,8 +49,8 @@ func (ur MySqlUserRepository) InsertAccount(account domain.Account) (*domain.Acc
 	account.AccountID = util.GenerateUUID()
 
 	query := sq.Insert("account").
-		Columns("account_id, username, email, password, salt").
-		Values(account.AccountID, account.Username, account.Email, account.Password, account.Salt)
+		Columns("account_id, email, password, salt").
+		Values(account.AccountID, account.Email, account.Password, account.Salt)
 
 	sql, args, err := query.ToSql()
 	if err != nil {
@@ -69,12 +69,14 @@ func (ur MySqlUserRepository) InsertAccount(account domain.Account) (*domain.Acc
 	}
 	defer stmt.Close()
 
-	result, err := tx.Exec(sql, args...)
-	fmt.Println(result)
+	_, err = tx.Exec(sql, args...)
 	if err != nil {
+		errMySQL, ok := err.(*mysql.MySQLError)
+		if ok && errMySQL.Number == 1062 {
+			return nil, cerror.NewAndPrintWithTag("IA03", err, global.FRIENDLY_DUPLICATE_EMAIL)
+		}
 		tx.Rollback()
 		return nil, cerror.NewAndPrintWithTag("IA03", err, global.FRIENDLY_MESSAGE)
-
 	}
 
 	err = tx.Commit()

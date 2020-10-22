@@ -15,22 +15,21 @@ import (
 
 // #region type helper
 type LoginResponse struct {
-	Message string
-	Token   string
+	Message string `json:"message"`
+	Token   string `json:"token"`
 }
 
 type SignUpRequest struct {
 	Fullname        string `json:"full_name" form:"bambang_sadikin" binding:"required"`
-	Username        string `json:"username" binding:"required"`
 	Email           string `json:"email" binding:"required"`
 	Passowrd        string `json:"password" binding:"required"`
 	ConfirmPassword string `json:"confirm_password" binding:"required,eqfield=Passowrd"`
 }
 
 type SignUpResponse struct {
-	Message []string
-	Account *domain.Account
-	Profile *domain.Profile
+	Message []string        `json:"message"`
+	Account *domain.Account `json:"account"`
+	Profile *domain.Profile `json:"profile"`
 }
 
 // #endregion
@@ -129,7 +128,6 @@ func (ah AuthHandler) SignUp(c *gin.Context) {
 
 	//populate request based on domain
 	var account domain.Account
-	account.Username = request.Username
 	account.Password = request.Passowrd
 	account.Email = request.Email
 

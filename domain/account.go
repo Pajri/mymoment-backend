@@ -2,7 +2,6 @@ package domain
 
 type Account struct {
 	AccountID string `json:"-"`
-	Username  string `json:"username"`
 	Password  string `json:"-"`
 	Email     string `json:"email"`
 	Salt      []byte `json:"-"`
@@ -14,5 +13,5 @@ type IAccountRepository interface {
 }
 
 type AccountFilter struct {
-	Username string
+	Email string
 }
