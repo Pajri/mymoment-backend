@@ -37,7 +37,15 @@ func (uc AuthUsecase) Login(account domain.Account) (string, error) {
 		return "", err
 	}
 
-	//TODO handle account not found
+	_, ok := uc.comparePassword([]byte(account.Password), regAccount.Salt, []byte(regAccount.Password))
+	if !ok {
+		cerr := cerror.NewAndPrintWithTag("LGU03",
+			errors.New("incorrect password for email :"+account.Email),
+			global.FRIENDLY_INVALID_USNME_PASSWORD)
+		cerr.Type = cerror.TYPE_UNAUTHORIZED
+
+		return "", cerr
+	}
 
 	if regAccount != nil {
 		claims := jwt.MapClaims{}
@@ -107,4 +115,17 @@ func (uc AuthUsecase) hashPassword(password, salt []byte) (string, error) {
 	}
 
 	return string(hash), nil
+}
+
+func (uc AuthUsecase) comparePassword(passwordInput, salt, storedPassword []byte) (error, bool) {
+	var saltedPassword []byte
+	saltedPassword = append(saltedPassword, passwordInput...)
+	saltedPassword = append(saltedPassword, salt...)
+
+	err := bcrypt.CompareHashAndPassword(storedPassword, saltedPassword)
+	if err != nil {
+		return cerror.NewAndPrintWithTag("CPA00", err, ""), false
+	}
+
+	return nil, true
 }

@@ -3,8 +3,9 @@ package cerror
 import "fmt"
 
 const (
-	TYPE_UNDEFINED = 0
-	TYPE_NOT_FOUND = 1
+	TYPE_UNDEFINED    = 0
+	TYPE_NOT_FOUND    = 1
+	TYPE_UNAUTHORIZED = 2
 )
 
 type Error struct {

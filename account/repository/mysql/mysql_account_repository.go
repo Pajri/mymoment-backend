@@ -22,7 +22,7 @@ type MySqlUserRepository struct {
 }
 
 func (ur MySqlUserRepository) GetAccount(filter domain.AccountFilter) (*domain.Account, error) {
-	query := sq.Select("account_id, password, email").
+	query := sq.Select("account_id, password, email, salt").
 		From("account")
 
 	if filter.Email != "" {
@@ -37,7 +37,7 @@ func (ur MySqlUserRepository) GetAccount(filter domain.AccountFilter) (*domain.A
 	row := ur.Db.QueryRow(sqlString, args...)
 
 	account := new(domain.Account)
-	err = row.Scan(&account.AccountID, &account.Password, &account.Email)
+	err = row.Scan(&account.AccountID, &account.Password, &account.Email, &account.Salt)
 	if err != nil {
 		return nil, cerror.NewAndPrintWithTag("GA02", err, global.FRIENDLY_MESSAGE)
 	}

@@ -14,9 +14,13 @@ import (
 )
 
 // #region type helper
+type LoginRequest struct {
+	Email    string `json:"email" binding:"required"`
+	Password string `json:"password" binding:"required"`
+}
 type LoginResponse struct {
-	Message string `json:"message"`
-	Token   string `json:"token"`
+	Message []string `json:"message"`
+	Token   string   `json:"token"`
 }
 
 type SignUpRequest struct {
@@ -48,39 +52,65 @@ func NewAuthHandler(router *gin.Engine, authUsecase domain.IAuthUsecase) {
 }
 
 func (ah AuthHandler) Login(c *gin.Context) {
-	var account domain.Account
-	err := c.ShouldBind(&account)
+	var (
+		request  LoginRequest
+		response LoginResponse
+	)
 
+	err := c.ShouldBind(&request)
 	if err != nil {
 		cerr := cerror.NewAndPrintWithTag("ALG", err, global.FRIENDLY_MESSAGE)
-		response := LoginResponse{
-			Message: cerr.FriendlyMessageWithTag(),
-		}
 
+		/*start validation*/
+		valError := err.(validator.ValidationErrors)
+		if valError != nil {
+			for _, elem := range valError {
+				fieldName := elem.Field()
+				field, _ := reflect.TypeOf(&request).Elem().FieldByName(fieldName)
+				jsonField, _ := field.Tag.Lookup("json")
+
+				switch elem.Tag() {
+				case "required":
+					msg := fmt.Sprintf(global.ERR_REQUIRED_FORMATTER, jsonField)
+					response.Message = append(response.Message, msg)
+					break
+				}
+			}
+
+			c.JSON(http.StatusBadRequest, response)
+			return
+		}
+		/*end validation*/
+
+		response.Message = []string{cerr.FriendlyMessageWithTag()}
 		c.JSON(http.StatusInternalServerError, response)
 		return
 	}
 
+	//populate
+	var account domain.Account
+	account.Email = request.Email
+	account.Password = request.Password
+
 	token, err := ah.useCase.Login(account)
 	if err != nil {
 		response := LoginResponse{
-			Message: err.(cerror.Error).FriendlyMessageWithTag(),
+			Message: []string{err.(cerror.Error).FriendlyMessageWithTag()},
 		}
 
 		httpStatus := http.StatusInternalServerError
 		if err.(cerror.Error).Err == sql.ErrNoRows {
 			httpStatus = http.StatusNotFound
-			response.Message = global.FRIENDLY_INVALID_USNME_PASSWORD
+			response.Message = []string{global.FRIENDLY_INVALID_USNME_PASSWORD}
+		} else if err.(cerror.Error).Type == cerror.TYPE_UNAUTHORIZED {
+			httpStatus = http.StatusUnauthorized
 		}
 
 		c.JSON(httpStatus, response)
 		return
 	}
 
-	response := LoginResponse{
-		Token: token,
-	}
-
+	response.Token = token
 	c.JSON(http.StatusOK, response)
 	return
 }
