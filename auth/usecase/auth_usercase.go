@@ -11,8 +11,10 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/pajri/personal-backend/adapter/cerror"
+	"github.com/pajri/personal-backend/config"
 	"github.com/pajri/personal-backend/domain"
 	"github.com/pajri/personal-backend/global"
+	"github.com/pajri/personal-backend/helper"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -21,12 +23,16 @@ const SALT_BYTES = 32
 type AuthUsecase struct {
 	accountRepo domain.IAccountRepository
 	profileRepo domain.IProfileRepository
+	mailHelper  helper.IEMail
 }
 
-func NewAuthUsecase(accountRepository domain.IAccountRepository, profileRepository domain.IProfileRepository) *AuthUsecase {
+func NewAuthUsecase(accountRepository domain.IAccountRepository,
+	profileRepository domain.IProfileRepository,
+	_mailHelper helper.IEMail) *AuthUsecase {
 	return &AuthUsecase{
 		accountRepo: accountRepository,
 		profileRepo: profileRepository,
+		mailHelper:  _mailHelper,
 	}
 }
 
@@ -98,8 +104,20 @@ func (uc AuthUsecase) SignUp(account domain.Account, profile domain.Profile) (*d
 	if insertedAccount != nil {
 		profile.AccountID = insertedAccount.AccountID
 		err = uc.profileRepo.InsertProfile(profile)
+		if err != nil {
+			return nil, nil, err
+		}
+
 	} else {
 		log.Println("[SGU00] insertedAccount is nil")
+	}
+
+	msg := fmt.Sprintf(global.VERIFY_EMAIL_TEMPLATE, uc.generateEmailConfirmationUrl(*insertedAccount))
+	to := []string{insertedAccount.Email}
+	subject := config.Config.EmailVerification.Subject
+	err = uc.mailHelper.SendMail(to, subject, msg)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	return insertedAccount, &profile, nil
@@ -195,4 +213,9 @@ func (uc AuthUsecase) parseJWT(tokenString string) (jwt.MapClaims, error) {
 			return []byte(os.Getenv("JWT_SECRET")), nil
 		})
 	return claims, err
+}
+
+func (uc AuthUsecase) generateEmailConfirmationUrl(account domain.Account) string {
+	url := fmt.Sprintf("%s/api/auth/verify_email?token=%s", config.Config.Host, account.EmailToken)
+	return url
 }

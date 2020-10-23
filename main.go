@@ -7,6 +7,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/pajri/personal-backend/config"
 	"github.com/pajri/personal-backend/db"
+	"github.com/pajri/personal-backend/helper"
 
 	_postDelivery "github.com/pajri/personal-backend/post/delivery"
 	_postRepository "github.com/pajri/personal-backend/post/repository/mysql"
@@ -56,7 +57,9 @@ func main() {
 
 	accountRepo := _accountRepository.NewMySqlAccountRepository(dbConn)
 	profileRepo := _profileRepository.NewMySqlProfileRepository(dbConn)
-	authUsecase := _authUsecase.NewAuthUsecase(accountRepo, profileRepo)
+	mailHelper := helper.NewEmailHelper()
+	authUsecase := _authUsecase.NewAuthUsecase(accountRepo, profileRepo, mailHelper)
 	_authDelivery.NewAuthHandler(r, authUsecase)
+
 	r.Run()
 }
