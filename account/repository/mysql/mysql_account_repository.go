@@ -143,3 +143,41 @@ func (ur MySqlUserRepository) UpdateIsVerified(accountId string, isVerified bool
 	}
 	return nil
 }
+
+func (ur MySqlUserRepository) UpdateSaltAndPassword(account domain.Account) error {
+	/*start create query*/
+	query := sq.Update("account").
+		Set("salt", account.Salt).
+		Set("password", account.Password).
+		Where(sq.Eq{"account_id": account.AccountID})
+
+	sqlString, args, err := query.ToSql()
+	if err != nil {
+		return cerror.NewAndPrintWithTag("USP00", err, global.FRIENDLY_MESSAGE)
+	}
+	/*start create query*/
+
+	tx, err := ur.Db.Begin()
+	if err != nil {
+		return cerror.NewAndPrintWithTag("USP01", err, global.FRIENDLY_MESSAGE)
+	}
+
+	stmt, err := tx.Prepare(sqlString)
+	if err != nil {
+		tx.Rollback()
+		return cerror.NewAndPrintWithTag("USP02", err, global.FRIENDLY_MESSAGE)
+	}
+	defer stmt.Close()
+
+	_, err = tx.Exec(sqlString, args...)
+	if err != nil {
+		tx.Rollback()
+		return cerror.NewAndPrintWithTag("USP03", err, global.FRIENDLY_MESSAGE)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return cerror.NewAndPrintWithTag("USP04", err, global.FRIENDLY_MESSAGE)
+	}
+	return nil
+}

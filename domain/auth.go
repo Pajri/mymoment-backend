@@ -5,4 +5,5 @@ type IAuthUsecase interface {
 	SignUp(account Account, profile Profile) (*Account, *Profile, error)
 	VerifyEmail(token string) error
 	ResetPassword(email string) error
+	ChangePassword(token, password string) error
 }

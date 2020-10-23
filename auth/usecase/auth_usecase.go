@@ -190,6 +190,51 @@ func (uc AuthUsecase) ResetPassword(email string) error {
 	return cerr
 }
 
+func (uc AuthUsecase) ChangePassword(token, password string) error {
+	payload, err := uc.parseJWT(token)
+	if err != nil {
+		return cerror.NewAndPrintWithTag("CPW00", err, global.FRIENDLY_INVALID_TOKEN)
+	}
+
+	expire := payload["exp"].(float64)
+	email := payload["email"].(string)
+
+	//start convert unix time to time
+	unixInt := int64(expire)
+	expTime := time.Unix(unixInt, 0)
+
+	if time.Now().After(expTime) {
+		return cerror.NewAndPrintWithTag("CPW01", err, global.FRIENDLY_TOKEN_EXPIRED)
+	}
+	//end convert unix time to time
+
+	//get account
+	filter := domain.AccountFilter{Email: email}
+	account, err := uc.accountRepo.GetAccount(filter)
+	if err != nil {
+		cerr := cerror.NewAndPrintWithTag("CPW02", err, global.FRIENDLY_INVALID_EMAIL)
+		cerr.Type = cerror.TYPE_NOT_FOUND
+		return cerr
+	}
+
+	account.Salt, err = uc.generateSalt()
+	if err != nil {
+		return err
+	}
+
+	account.Password, err = uc.hashPassword([]byte(password), account.Salt)
+	if err != nil {
+		return err
+	}
+
+	err = uc.accountRepo.UpdateSaltAndPassword(*account)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (uc AuthUsecase) generateSalt() ([]byte, error) {
 	salt := make([]byte, SALT_BYTES)
 	_, err := io.ReadFull(rand.Reader, salt)

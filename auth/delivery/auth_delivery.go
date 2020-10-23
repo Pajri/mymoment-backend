@@ -27,8 +27,8 @@ type LoginResponse struct {
 type SignUpRequest struct {
 	Fullname        string `json:"full_name" binding:"required"`
 	Email           string `json:"email" binding:"required"`
-	Passowrd        string `json:"password" binding:"required"`
-	ConfirmPassword string `json:"confirm_password" binding:"required,eqfield=Passowrd"`
+	Password        string `json:"password" binding:"required"`
+	ConfirmPassword string `json:"confirm_password" binding:"required,eqfield=Password"`
 }
 
 type SignUpResponse struct {
@@ -49,6 +49,15 @@ type ResetPasswordResponse struct {
 	Message []string `json:"message"`
 }
 
+type ChangePasswordRequest struct {
+	Password             string `json:"password" binding:"required"`
+	PasswordConfirmation string `json:"password_confirmation" binding:"required,eqfield=Password"`
+}
+
+type ChangePasswordResponse struct {
+	Message []string `json:"message"`
+}
+
 // #endregion
 
 type AuthHandler struct {
@@ -64,6 +73,7 @@ func NewAuthHandler(router *gin.Engine, authUsecase domain.IAuthUsecase) {
 	router.POST("/api/auth/signup", handler.SignUp)
 	router.GET("/api/auth/verify_email", handler.VerifyEmail)
 	router.POST("/api/auth/reset_password", handler.ResetPassword)
+	router.POST("/api/auth/change_password", handler.ChangePassword)
 }
 
 func (ah AuthHandler) Login(c *gin.Context) {
@@ -173,7 +183,7 @@ func (ah AuthHandler) SignUp(c *gin.Context) {
 
 	//populate request based on domain
 	var account domain.Account
-	account.Password = request.Passowrd
+	account.Password = request.Password
 	account.Email = request.Email
 
 	var profile domain.Profile
@@ -187,8 +197,6 @@ func (ah AuthHandler) SignUp(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, response)
 		return
 	}
-
-	//TODO : send email verification
 
 	response.Account = createdAccount
 	response.Profile = createdProfile
@@ -222,7 +230,7 @@ func (ah AuthHandler) VerifyEmail(c *gin.Context) {
 		return
 	}
 
-	response.Message = "Token is required"
+	response.Message = global.FRIENDLY_TOKEN_REQUIRED
 	c.JSON(http.StatusBadRequest, response)
 }
 
@@ -279,5 +287,74 @@ func (ah AuthHandler) ResetPassword(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, response)
+	return
+}
+
+func (ah AuthHandler) ChangePassword(c *gin.Context) {
+	var (
+		resetPasswordToken string
+		request            ChangePasswordRequest
+		response           ChangePasswordResponse
+	)
+
+	err := c.ShouldBind(&request)
+	if err != nil {
+		cerr := cerror.NewAndPrintWithTag("CPH00", err, global.FRIENDLY_MESSAGE)
+
+		/*start form validation*/
+		valError := err.(validator.ValidationErrors)
+		if valError != nil {
+			for _, elem := range valError {
+				fieldName := elem.Field()
+				field, _ := reflect.TypeOf(&request).Elem().FieldByName(fieldName)
+				jsonField, _ := field.Tag.Lookup("json")
+
+				switch elem.Tag() {
+				case "required":
+					msg := fmt.Sprintf(global.ERR_REQUIRED_FORMATTER, jsonField)
+					response.Message = append(response.Message, msg)
+					break
+
+				case "eqfield":
+					msg := fmt.Sprintf(global.ERR_DIFFERENT_FORMATTER, jsonField, "password")
+					response.Message = append(response.Message, msg)
+					break
+				}
+			}
+
+			c.JSON(http.StatusBadRequest, response)
+			return
+		}
+		/*end form validation*/
+		response.Message = []string{cerr.FriendlyMessageWithTag()}
+
+		c.JSON(http.StatusBadRequest, response)
+		return
+	}
+
+	query := c.Request.URL.Query()
+	if len(query) > 0 && query["token"] != nil && len(query["token"]) > 0 { //token validation
+		resetPasswordToken = query["token"][0]
+		err := ah.useCase.ChangePassword(resetPasswordToken, request.Password)
+		if err != nil {
+			cerr, ok := err.(cerror.Error)
+			if ok {
+				response.Message = []string{cerr.FriendlyMessageWithTag()}
+			} else {
+				cerr := cerror.NewAndPrintWithTag("CPH01", err, global.FRIENDLY_MESSAGE)
+				response.Message = []string{cerr.FriendlyMessageWithTag()}
+			}
+
+			c.JSON(http.StatusInternalServerError, response)
+			return
+		}
+
+		c.JSON(http.StatusOK, response)
+		return
+
+	}
+
+	response.Message = []string{global.FRIENDLY_TOKEN_REQUIRED}
+	c.JSON(http.StatusBadRequest, response)
 	return
 }
