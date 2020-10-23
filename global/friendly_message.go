@@ -7,4 +7,5 @@ const (
 	FRIENDLY_INVALID_TOKEN          = "Token is invalid"
 	FRIENDLY_TOKEN_EXPIRED          = "Token is expired"
 	FRIENDLY_EMAIL_NOT_VERIFIED     = "Email has not been verified"
+	FRIENDLY_INVALID_EMAIL_FORMAT   = "Invalid email format"
 )

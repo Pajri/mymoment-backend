@@ -41,6 +41,14 @@ type VerifyResponse struct {
 	Message string `json:"message"`
 }
 
+type ResetPasswordRequest struct {
+	Email string `json:"email" binding:"required,email"`
+}
+
+type ResetPasswordResponse struct {
+	Message []string `json:"message"`
+}
+
 // #endregion
 
 type AuthHandler struct {
@@ -55,6 +63,7 @@ func NewAuthHandler(router *gin.Engine, authUsecase domain.IAuthUsecase) {
 	router.POST("/api/auth/login", handler.Login)
 	router.POST("/api/auth/signup", handler.SignUp)
 	router.GET("/api/auth/verify_email", handler.VerifyEmail)
+	router.POST("/api/auth/reset_password", handler.ResetPassword)
 }
 
 func (ah AuthHandler) Login(c *gin.Context) {
@@ -215,4 +224,60 @@ func (ah AuthHandler) VerifyEmail(c *gin.Context) {
 
 	response.Message = "Token is required"
 	c.JSON(http.StatusBadRequest, response)
+}
+
+func (ah AuthHandler) ResetPassword(c *gin.Context) {
+	var (
+		request  ResetPasswordRequest
+		response ResetPasswordResponse
+	)
+
+	err := c.ShouldBind(&request)
+	if err != nil {
+		cerr := cerror.NewAndPrintWithTag("RPH00", err, global.FRIENDLY_MESSAGE)
+
+		/*start validation*/
+		valError := err.(validator.ValidationErrors)
+		if valError != nil {
+			for _, elem := range valError {
+				fieldName := elem.Field()
+				field, _ := reflect.TypeOf(&request).Elem().FieldByName(fieldName)
+				jsonField, _ := field.Tag.Lookup("json")
+
+				switch elem.Tag() {
+				case "required":
+					msg := fmt.Sprintf(global.ERR_REQUIRED_FORMATTER, jsonField)
+					response.Message = append(response.Message, msg)
+					break
+				case "email":
+					msg := global.FRIENDLY_INVALID_EMAIL_FORMAT
+					response.Message = append(response.Message, msg)
+					break
+				}
+			}
+
+			c.JSON(http.StatusBadRequest, response)
+			return
+		}
+		/*end validation*/
+
+		response.Message = []string{cerr.FriendlyMessageWithTag()}
+		c.JSON(http.StatusInternalServerError, response)
+		return
+	}
+
+	err = ah.useCase.ResetPassword(request.Email)
+	if err != nil {
+		cerr, ok := err.(cerror.Error)
+		if ok {
+			if cerr.Type != cerror.TYPE_NOT_FOUND {
+				response.Message = append(response.Message, cerr.FriendlyMessageWithTag())
+				c.JSON(http.StatusInternalServerError, response)
+				return
+			}
+		}
+	}
+
+	c.JSON(http.StatusOK, response)
+	return
 }

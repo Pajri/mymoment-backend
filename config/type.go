@@ -5,6 +5,7 @@ type Configuration struct {
 	SMTP              SMTP
 	Host              string
 	EmailVerification EmailVerificationConfig
+	ResetPassword     ResetPasswordConfig
 }
 
 type DBConfig struct {
@@ -24,5 +25,9 @@ type SMTP struct {
 }
 
 type EmailVerificationConfig struct {
+	Subject string
+}
+
+type ResetPasswordConfig struct {
 	Subject string
 }

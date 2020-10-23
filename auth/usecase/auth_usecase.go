@@ -157,6 +157,39 @@ func (uc AuthUsecase) VerifyEmail(token string) error {
 	return nil
 }
 
+func (uc AuthUsecase) ResetPassword(email string) error {
+	token, err := uc.createResetPasswordToken(email)
+	if err != nil {
+		return err
+	}
+
+	filter := domain.AccountFilter{Email: email}
+	account, err := uc.accountRepo.GetAccount(filter)
+	if account != nil {
+		if !account.IsVerified {
+			cerr := cerror.NewAndPrintWithTag("RPA01", fmt.Errorf("email %s has not been verified", account.Email), global.FRIENDLY_EMAIL_NOT_VERIFIED)
+			return cerr
+		}
+
+		url := uc.generateResetPasswordUrl(token)
+
+		msg := fmt.Sprintf(global.RESET_PASSWORD_TEMPLATE, url)
+		to := []string{email}
+		subject := config.Config.ResetPassword.Subject
+		err = uc.mailHelper.SendMail(to, subject, msg)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	}
+
+	err = fmt.Errorf("email %s is not found", email)
+	cerr := cerror.NewAndPrintWithTag("RPA00", err, "")
+	cerr.Type = cerror.TYPE_NOT_FOUND
+	return cerr
+}
+
 func (uc AuthUsecase) generateSalt() ([]byte, error) {
 	salt := make([]byte, SALT_BYTES)
 	_, err := io.ReadFull(rand.Reader, salt)
@@ -215,7 +248,26 @@ func (uc AuthUsecase) parseJWT(tokenString string) (jwt.MapClaims, error) {
 	return claims, err
 }
 
+func (uc AuthUsecase) createResetPasswordToken(email string) (string, error) {
+	claims := jwt.MapClaims{}
+	claims["email"] = email
+	claims["exp"] = time.Now().Add(24 * time.Hour).Unix()
+
+	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	token, err := accessToken.SignedString([]byte(os.Getenv("JWT_SECRET")))
+	if err != nil {
+		return "", cerror.NewAndPrintWithTag("CRP00", err, global.FRIENDLY_MESSAGE)
+	}
+
+	return token, nil
+}
+
 func (uc AuthUsecase) generateEmailConfirmationUrl(account domain.Account) string {
 	url := fmt.Sprintf("%s/api/auth/verify_email?token=%s", config.Config.Host, account.EmailToken)
+	return url
+}
+
+func (uc AuthUsecase) generateResetPasswordUrl(token string) string {
+	url := fmt.Sprintf("%s/api/auth/change_password?token=%s", config.Config.Host, token)
 	return url
 }
