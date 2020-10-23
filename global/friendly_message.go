@@ -6,4 +6,5 @@ const (
 	FRIENDLY_DUPLICATE_EMAIL        = "Email has already been used"
 	FRIENDLY_INVALID_TOKEN          = "Token is invalid"
 	FRIENDLY_TOKEN_EXPIRED          = "Token is expired"
+	FRIENDLY_EMAIL_NOT_VERIFIED     = "Email has not been verified"
 )

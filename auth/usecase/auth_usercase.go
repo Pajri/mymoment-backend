@@ -3,6 +3,7 @@ package usecase
 import (
 	"crypto/rand"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -47,6 +48,12 @@ func (uc AuthUsecase) Login(account domain.Account) (string, error) {
 	}
 
 	if regAccount != nil {
+		if !regAccount.IsVerified {
+			err := fmt.Errorf("email %s has not been verified")
+			cerr := cerror.NewAndPrintWithTag("LGU03", err, global.FRIENDLY_EMAIL_NOT_VERIFIED)
+			return "", cerr
+		}
+
 		claims := jwt.MapClaims{}
 		claims["authorized"] = true
 		claims["user_id"] = regAccount.Email
