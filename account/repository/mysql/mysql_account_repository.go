@@ -96,7 +96,7 @@ func (ur MySqlUserRepository) InsertAccount(account domain.Account) (*domain.Acc
 			return nil, cerror.NewAndPrintWithTag("IA03", err, global.FRIENDLY_DUPLICATE_EMAIL)
 		}
 		tx.Rollback()
-		return nil, cerror.NewAndPrintWithTag("IA03", err, global.FRIENDLY_MESSAGE)
+		return nil, cerror.NewAndPrintWithTag("IA05", err, global.FRIENDLY_MESSAGE)
 	}
 
 	err = tx.Commit()
@@ -105,4 +105,41 @@ func (ur MySqlUserRepository) InsertAccount(account domain.Account) (*domain.Acc
 	}
 
 	return &account, nil
+}
+
+func (ur MySqlUserRepository) UpdateIsVerified(accountId string, isVerified bool) error {
+	/*start create query*/
+	query := sq.Update("account").
+		Set("is_verified", isVerified).
+		Where(sq.Eq{"account_id": accountId})
+
+	sqlString, args, err := query.ToSql()
+	if err != nil {
+		return cerror.NewAndPrintWithTag("UIV00", err, global.FRIENDLY_MESSAGE)
+	}
+	/*start create query*/
+
+	tx, err := ur.Db.Begin()
+	if err != nil {
+		return cerror.NewAndPrintWithTag("UIV01", err, global.FRIENDLY_MESSAGE)
+	}
+
+	stmt, err := tx.Prepare(sqlString)
+	if err != nil {
+		tx.Rollback()
+		return cerror.NewAndPrintWithTag("UIV02", err, global.FRIENDLY_MESSAGE)
+	}
+	defer stmt.Close()
+
+	_, err = tx.Exec(sqlString, args...)
+	if err != nil {
+		tx.Rollback()
+		return cerror.NewAndPrintWithTag("UIV03", err, global.FRIENDLY_MESSAGE)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return cerror.NewAndPrintWithTag("UIV04", err, global.FRIENDLY_MESSAGE)
+	}
+	return nil
 }

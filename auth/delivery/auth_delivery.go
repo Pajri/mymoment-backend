@@ -36,6 +36,10 @@ type SignUpResponse struct {
 	Profile *domain.Profile `json:"profile"`
 }
 
+type VerifyResponse struct {
+	Message string `json:"message"`
+}
+
 // #endregion
 
 type AuthHandler struct {
@@ -49,6 +53,7 @@ func NewAuthHandler(router *gin.Engine, authUsecase domain.IAuthUsecase) {
 
 	router.POST("/api/auth/login", handler.Login)
 	router.POST("/api/auth/signup", handler.SignUp)
+	router.GET("/api/auth/verify_email", handler.VerifyEmail)
 }
 
 func (ah AuthHandler) Login(c *gin.Context) {
@@ -173,7 +178,40 @@ func (ah AuthHandler) SignUp(c *gin.Context) {
 		return
 	}
 
+	//TODO : send email verification
+
 	response.Account = createdAccount
 	response.Profile = createdProfile
 	c.JSON(http.StatusCreated, response)
+}
+
+func (ah AuthHandler) VerifyEmail(c *gin.Context) {
+	var (
+		emailToken string
+		response   VerifyResponse
+	)
+
+	query := c.Request.URL.Query()
+	if len(query) > 0 && query["token"] != nil && len(query["token"]) > 0 {
+		emailToken = query["token"][0]
+		err := ah.useCase.VerifyEmail(emailToken)
+		if err != nil {
+			_, ok := err.(cerror.Error)
+			if ok {
+				cerr := err.(cerror.Error)
+				response.Message = cerr.FriendlyMessage
+			}
+
+			cerr := cerror.NewAndPrintWithTag("VEH00", err, global.FRIENDLY_MESSAGE)
+			response.Message = cerr.FriendlyMessage
+			c.JSON(http.StatusInternalServerError, response)
+			return
+		}
+
+		c.JSON(http.StatusOK, response)
+		return
+	}
+
+	response.Message = "Token is required"
+	c.JSON(http.StatusBadRequest, response)
 }

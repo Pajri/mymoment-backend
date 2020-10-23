@@ -12,6 +12,7 @@ type Account struct {
 type IAccountRepository interface {
 	GetAccount(filter AccountFilter) (*Account, error)
 	InsertAccount(account Account) (*Account, error)
+	UpdateIsVerified(accountId string, isVerified bool) error
 }
 
 type AccountFilter struct {

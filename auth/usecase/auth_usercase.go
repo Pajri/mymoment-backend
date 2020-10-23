@@ -98,6 +98,40 @@ func (uc AuthUsecase) SignUp(account domain.Account, profile domain.Profile) (*d
 	return insertedAccount, &profile, nil
 }
 
+func (uc AuthUsecase) VerifyEmail(token string) error {
+	payload, err := uc.parseJWT(token)
+	if err != nil {
+		return cerror.NewAndPrintWithTag("VEA00", err, global.FRIENDLY_INVALID_TOKEN)
+	}
+
+	expire := payload["exp"].(float64)
+	email := payload["email"].(string)
+
+	//start convert unix time to time
+	unixInt := int64(expire)
+	expTime := time.Unix(unixInt, 0)
+
+	if time.Now().After(expTime) {
+		return cerror.NewAndPrintWithTag("VEA02", err, global.FRIENDLY_TOKEN_EXPIRED)
+	}
+	//end convert unix time to time
+
+	//get account
+	filter := domain.AccountFilter{Email: email}
+	account, err := uc.accountRepo.GetAccount(filter)
+	if err != nil {
+		return err
+	}
+
+	//verify email
+	err = uc.accountRepo.UpdateIsVerified(account.AccountID, true)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (uc AuthUsecase) generateSalt() ([]byte, error) {
 	salt := make([]byte, SALT_BYTES)
 	_, err := io.ReadFull(rand.Reader, salt)
@@ -145,4 +179,13 @@ func (uc AuthUsecase) createEmailVerificationToken(account domain.Account) (stri
 	}
 
 	return token, nil
+}
+
+func (uc AuthUsecase) parseJWT(tokenString string) (jwt.MapClaims, error) {
+	claims := jwt.MapClaims{}
+	_, err := jwt.ParseWithClaims(tokenString, claims,
+		func(token *jwt.Token) (interface{}, error) {
+			return []byte(os.Getenv("JWT_SECRET")), nil
+		})
+	return claims, err
 }
