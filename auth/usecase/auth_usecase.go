@@ -16,6 +16,7 @@ import (
 	"github.com/pajri/personal-backend/domain"
 	"github.com/pajri/personal-backend/global"
 	"github.com/pajri/personal-backend/helper"
+	"github.com/pajri/personal-backend/redis"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -57,24 +58,47 @@ func (uc AuthUsecase) Login(account domain.Account) (*helper.JWTWrapper, error) 
 	if regAccount != nil {
 		if !regAccount.IsVerified {
 			err := fmt.Errorf("email %s has not been verified")
-			cerr := cerror.NewAndPrintWithTag("LGU03", err, global.FRIENDLY_EMAIL_NOT_VERIFIED)
+			cerr := cerror.NewAndPrintWithTag("LGU04", err, global.FRIENDLY_EMAIL_NOT_VERIFIED)
 			return nil, cerr
 		}
 
 		accessTokenClaims := jwt.MapClaims{}
 		accessTokenClaims["authorized"] = true
 		accessTokenClaims["account_id"] = regAccount.AccountID
+		accessTokenClaims["access_uuid"] = uuid.New().String()
 		accessTokenClaims["email"] = regAccount.Email
 		accessTokenClaims["exp"] = time.Now().Add(15 * time.Minute).Unix()
 
 		refreshTokenClaims := jwt.MapClaims{}
 		refreshTokenClaims["account_id"] = regAccount.AccountID
+		refreshTokenClaims["refresh_uuid"] = uuid.New().String()
 		refreshTokenClaims["exp"] = time.Now().Add(1 * time.Hour).Unix()
 
 		jwtHelper := helper.JWTHelper{}
 		token, err := jwtHelper.CreateTokenPair(accessTokenClaims, refreshTokenClaims)
 		if err != nil {
 			return nil, err
+		}
+
+		//todo make helper for redigo
+		_, err = redis.Client.Do("SET", accessTokenClaims["access_uuid"], token.AccessToken)
+		if err != nil {
+			return nil, cerror.NewAndPrintWithTag("LUG05", err, global.FRIENDLY_MESSAGE)
+		}
+
+		_, err = redis.Client.Do("EXPIREAT", accessTokenClaims["access_uuid"], accessTokenClaims["exp"])
+		if err != nil {
+			return nil, cerror.NewAndPrintWithTag("LUG06", err, global.FRIENDLY_MESSAGE)
+		}
+
+		_, err = redis.Client.Do("SET", refreshTokenClaims["refresh_uuid"], token.RefreshToken)
+		if err != nil {
+			return nil, cerror.NewAndPrintWithTag("LUG07", err, global.FRIENDLY_MESSAGE)
+		}
+
+		_, err = redis.Client.Do("EXPIREAT", refreshTokenClaims["refresh_uuid"], refreshTokenClaims["exp"])
+		if err != nil {
+			return nil, cerror.NewAndPrintWithTag("LUG08", err, global.FRIENDLY_MESSAGE)
 		}
 
 		return token, nil

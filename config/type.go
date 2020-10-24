@@ -6,6 +6,7 @@ type Configuration struct {
 	Host              string
 	EmailVerification EmailVerificationConfig
 	ResetPassword     ResetPasswordConfig
+	Redis             RedisConfig
 }
 
 type DBConfig struct {
@@ -30,4 +31,10 @@ type EmailVerificationConfig struct {
 
 type ResetPasswordConfig struct {
 	Subject string
+}
+
+type RedisConfig struct {
+	Host     string
+	Port     int
+	Password string
 }
