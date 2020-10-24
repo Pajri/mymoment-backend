@@ -20,8 +20,9 @@ type LoginRequest struct {
 }
 
 type LoginResponse struct {
-	Message []string `json:"message"`
-	Token   string   `json:"token"`
+	Message      []string `json:"message"`
+	AccessToken  string   `json:"access_token"`
+	RefreshToken string   `json:"refresh_token"`
 }
 
 type SignUpRequest struct {
@@ -135,7 +136,8 @@ func (ah AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	response.Token = token
+	response.AccessToken = token.AccessToken
+	response.RefreshToken = token.RefreshToken
 	c.JSON(http.StatusOK, response)
 	return
 }

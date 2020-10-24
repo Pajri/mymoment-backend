@@ -37,46 +37,51 @@ func NewAuthUsecase(accountRepository domain.IAccountRepository,
 	}
 }
 
-func (uc AuthUsecase) Login(account domain.Account) (string, error) {
+func (uc AuthUsecase) Login(account domain.Account) (*helper.JWTWrapper, error) {
 	filter := domain.AccountFilter{Email: account.Email}
 	regAccount, err := uc.accountRepo.GetAccount(filter)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	_, ok := uc.comparePassword([]byte(account.Password), regAccount.Salt, []byte(regAccount.Password))
-	if !ok {
+	err, ok := uc.comparePassword([]byte(account.Password), regAccount.Salt, []byte(regAccount.Password))
+	if !ok || err != nil {
 		cerr := cerror.NewAndPrintWithTag("LGU03",
 			errors.New("incorrect password for email :"+account.Email),
 			global.FRIENDLY_INVALID_USNME_PASSWORD)
 		cerr.Type = cerror.TYPE_UNAUTHORIZED
 
-		return "", cerr
+		return nil, cerr
 	}
 
 	if regAccount != nil {
 		if !regAccount.IsVerified {
 			err := fmt.Errorf("email %s has not been verified")
 			cerr := cerror.NewAndPrintWithTag("LGU03", err, global.FRIENDLY_EMAIL_NOT_VERIFIED)
-			return "", cerr
+			return nil, cerr
 		}
 
-		claims := jwt.MapClaims{}
-		claims["authorized"] = true
-		claims["user_id"] = regAccount.Email
-		claims["exp"] = time.Now().Add(12 * time.Minute).Unix()
+		accessTokenClaims := jwt.MapClaims{}
+		accessTokenClaims["authorized"] = true
+		accessTokenClaims["account_id"] = regAccount.AccountID
+		accessTokenClaims["email"] = regAccount.Email
+		accessTokenClaims["exp"] = time.Now().Add(15 * time.Minute).Unix()
 
-		accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-		token, err := accessToken.SignedString([]byte(os.Getenv("JWT_SECRET")))
+		refreshTokenClaims := jwt.MapClaims{}
+		refreshTokenClaims["account_id"] = regAccount.AccountID
+		refreshTokenClaims["exp"] = time.Now().Add(1 * time.Hour).Unix()
+
+		jwtHelper := helper.JWTHelper{}
+		token, err := jwtHelper.CreateTokenPair(accessTokenClaims, refreshTokenClaims)
 		if err != nil {
-			return "", cerror.NewAndPrintWithTag("LGU01", err, global.FRIENDLY_MESSAGE)
+			return nil, err
 		}
 
 		return token, nil
 	}
 
 	userNilErr := cerror.NewAndPrintWithTag("LGU02", errors.New("user nil"), global.FRIENDLY_INVALID_USNME_PASSWORD)
-	return "", userNilErr
+	return nil, userNilErr
 }
 
 func (uc AuthUsecase) SignUp(account domain.Account, profile domain.Profile) (*domain.Account, *domain.Profile, error) {
@@ -276,7 +281,7 @@ func (uc AuthUsecase) comparePassword(passwordInput, salt, storedPassword []byte
 
 	err := bcrypt.CompareHashAndPassword(storedPassword, saltedPassword)
 	if err != nil {
-		return cerror.NewAndPrintWithTag("CPA00", err, ""), false
+		return cerror.NewAndPrintWithTag("CPA00", err, global.FRIENDLY_INVALID_USNME_PASSWORD), false
 	}
 
 	return nil, true
