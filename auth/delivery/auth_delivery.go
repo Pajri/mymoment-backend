@@ -72,7 +72,7 @@ func NewAuthHandler(router *gin.Engine, authUsecase domain.IAuthUsecase) {
 	router.POST("/api/auth/login", handler.Login)
 	router.POST("/api/auth/signup", handler.SignUp)
 	router.GET("/api/auth/verify_email", handler.VerifyEmail)
-	router.POST("/api/auth/reset_password", handler.ResetPassword)
+	router.POST("/api/auth/reset_password/", handler.ResetPassword)
 	router.POST("/api/auth/change_password", handler.ChangePassword)
 }
 

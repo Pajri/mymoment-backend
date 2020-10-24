@@ -53,7 +53,9 @@ func (ur MySqlUserRepository) GetAccount(filter domain.AccountFilter) (*domain.A
 }
 
 func (ur MySqlUserRepository) InsertAccount(account domain.Account) (*domain.Account, error) {
-	account.AccountID = util.GenerateUUID()
+	if account.AccountID == "" {
+		account.AccountID = util.GenerateUUID()
+	}
 
 	query := sq.Insert("account").
 		Columns(`

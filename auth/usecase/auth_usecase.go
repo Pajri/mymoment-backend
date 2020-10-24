@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
+	"github.com/google/uuid"
 	"github.com/pajri/personal-backend/adapter/cerror"
 	"github.com/pajri/personal-backend/config"
 	"github.com/pajri/personal-backend/domain"
@@ -91,7 +92,13 @@ func (uc AuthUsecase) SignUp(account domain.Account, profile domain.Profile) (*d
 		return nil, nil, err
 	}
 
-	account.EmailToken, err = uc.createEmailVerificationToken(account)
+	emailTokenClaims := jwt.MapClaims{}
+	emailTokenClaims["account_id"] = uuid.New().String()
+	emailTokenClaims["email"] = account.Email
+	emailTokenClaims["exp"] = time.Now().Add(15 * time.Minute).Unix()
+
+	jwtHelper := helper.JWTHelper{}
+	account.EmailToken, err = jwtHelper.CreateToken(emailTokenClaims)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -158,7 +165,12 @@ func (uc AuthUsecase) VerifyEmail(token string) error {
 }
 
 func (uc AuthUsecase) ResetPassword(email string) error {
-	token, err := uc.createResetPasswordToken(email)
+	claims := jwt.MapClaims{}
+	claims["email"] = email
+	claims["exp"] = time.Now().Add(24 * time.Hour).Unix()
+
+	jwtHelper := helper.JWTHelper{}
+	token, err := jwtHelper.CreateToken(claims)
 	if err != nil {
 		return err
 	}
@@ -270,20 +282,6 @@ func (uc AuthUsecase) comparePassword(passwordInput, salt, storedPassword []byte
 	return nil, true
 }
 
-func (uc AuthUsecase) createEmailVerificationToken(account domain.Account) (string, error) {
-	claims := jwt.MapClaims{}
-	claims["email"] = account.Email
-	claims["exp"] = time.Now().Add(24 * time.Hour).Unix()
-
-	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	token, err := accessToken.SignedString([]byte(os.Getenv("JWT_SECRET")))
-	if err != nil {
-		return "", cerror.NewAndPrintWithTag("CEV99", err, global.FRIENDLY_MESSAGE)
-	}
-
-	return token, nil
-}
-
 func (uc AuthUsecase) parseJWT(tokenString string) (jwt.MapClaims, error) {
 	claims := jwt.MapClaims{}
 	_, err := jwt.ParseWithClaims(tokenString, claims,
@@ -291,20 +289,6 @@ func (uc AuthUsecase) parseJWT(tokenString string) (jwt.MapClaims, error) {
 			return []byte(os.Getenv("JWT_SECRET")), nil
 		})
 	return claims, err
-}
-
-func (uc AuthUsecase) createResetPasswordToken(email string) (string, error) {
-	claims := jwt.MapClaims{}
-	claims["email"] = email
-	claims["exp"] = time.Now().Add(24 * time.Hour).Unix()
-
-	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	token, err := accessToken.SignedString([]byte(os.Getenv("JWT_SECRET")))
-	if err != nil {
-		return "", cerror.NewAndPrintWithTag("CRP00", err, global.FRIENDLY_MESSAGE)
-	}
-
-	return token, nil
 }
 
 func (uc AuthUsecase) generateEmailConfirmationUrl(account domain.Account) string {
