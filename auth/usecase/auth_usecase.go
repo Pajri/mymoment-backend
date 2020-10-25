@@ -16,7 +16,6 @@ import (
 	"github.com/pajri/personal-backend/domain"
 	"github.com/pajri/personal-backend/global"
 	"github.com/pajri/personal-backend/helper"
-	"github.com/pajri/personal-backend/redis"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -81,24 +80,14 @@ func (uc AuthUsecase) Login(account domain.Account) (*helper.JWTWrapper, error) 
 		}
 
 		//todo make helper for redigo
-		_, err = redis.Client.Do("SET", accessTokenClaims["access_uuid"], token.AccessToken)
+		err = helper.RedisHelper.Set(accessTokenClaims["access_uuid"].(string), token.AccessToken, accessTokenClaims["exp"].(int64))
 		if err != nil {
-			return nil, cerror.NewAndPrintWithTag("LUG05", err, global.FRIENDLY_MESSAGE)
+			return nil, err
 		}
 
-		_, err = redis.Client.Do("EXPIREAT", accessTokenClaims["access_uuid"], accessTokenClaims["exp"])
+		err = helper.RedisHelper.Set(refreshTokenClaims["refresh_uuid"].(string), token.RefreshToken, refreshTokenClaims["exp"].(int64))
 		if err != nil {
-			return nil, cerror.NewAndPrintWithTag("LUG06", err, global.FRIENDLY_MESSAGE)
-		}
-
-		_, err = redis.Client.Do("SET", refreshTokenClaims["refresh_uuid"], token.RefreshToken)
-		if err != nil {
-			return nil, cerror.NewAndPrintWithTag("LUG07", err, global.FRIENDLY_MESSAGE)
-		}
-
-		_, err = redis.Client.Do("EXPIREAT", refreshTokenClaims["refresh_uuid"], refreshTokenClaims["exp"])
-		if err != nil {
-			return nil, cerror.NewAndPrintWithTag("LUG08", err, global.FRIENDLY_MESSAGE)
+			return nil, err
 		}
 
 		return token, nil

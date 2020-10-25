@@ -10,7 +10,6 @@ import (
 	"github.com/pajri/personal-backend/config"
 	"github.com/pajri/personal-backend/db"
 	"github.com/pajri/personal-backend/helper"
-	"github.com/pajri/personal-backend/redis"
 	"github.com/stretchr/stew/slice"
 
 	_postDelivery "github.com/pajri/personal-backend/post/delivery"
@@ -62,8 +61,8 @@ func main() {
 	/*end load env variable*/
 
 	/*start init redis*/
-	redis.InitRedis()
-	defer redis.Client.Close()
+	helper.InitRedis()
+	defer helper.RedisHelper.(helper.Redis).Client.Close()
 	/*end init redis*/
 
 	r := gin.Default()
