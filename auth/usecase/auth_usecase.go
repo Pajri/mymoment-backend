@@ -29,7 +29,7 @@ type AuthUsecase struct {
 
 func NewAuthUsecase(accountRepository domain.IAccountRepository,
 	profileRepository domain.IProfileRepository,
-	_mailHelper helper.IEMail) *AuthUsecase {
+	_mailHelper helper.IEMail) domain.IAuthUsecase {
 	return &AuthUsecase{
 		accountRepo: accountRepository,
 		profileRepo: profileRepository,
@@ -149,7 +149,7 @@ func (uc AuthUsecase) SignUp(account domain.Account, profile domain.Profile) (*d
 }
 
 func (uc AuthUsecase) VerifyEmail(token string) error {
-	payload, err := uc.parseJWT(token)
+	payload, err := uc.ParseJWT(token)
 	if err != nil {
 		return cerror.NewAndPrintWithTag("VEA00", err, global.FRIENDLY_INVALID_TOKEN)
 	}
@@ -221,7 +221,7 @@ func (uc AuthUsecase) ResetPassword(email string) error {
 }
 
 func (uc AuthUsecase) ChangePassword(token, password string) error {
-	payload, err := uc.parseJWT(token)
+	payload, err := uc.ParseJWT(token)
 	if err != nil {
 		return cerror.NewAndPrintWithTag("CPW00", err, global.FRIENDLY_INVALID_TOKEN)
 	}
@@ -300,13 +300,18 @@ func (uc AuthUsecase) comparePassword(passwordInput, salt, storedPassword []byte
 	return nil, true
 }
 
-func (uc AuthUsecase) parseJWT(tokenString string) (jwt.MapClaims, error) {
+func (uc AuthUsecase) ParseJWT(tokenString string) (jwt.MapClaims, error) {
 	claims := jwt.MapClaims{}
 	_, err := jwt.ParseWithClaims(tokenString, claims,
 		func(token *jwt.Token) (interface{}, error) {
 			return []byte(os.Getenv("JWT_SECRET")), nil
 		})
-	return claims, err
+
+	if err != nil {
+		return nil, cerror.NewAndPrintWithTag("PJW00", err, global.FRIENDLY_INVALID_TOKEN)
+	}
+
+	return claims, nil
 }
 
 func (uc AuthUsecase) generateEmailConfirmationUrl(account domain.Account) string {

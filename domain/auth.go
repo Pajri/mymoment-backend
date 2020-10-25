@@ -1,6 +1,9 @@
 package domain
 
-import "github.com/pajri/personal-backend/helper"
+import (
+	"github.com/dgrijalva/jwt-go"
+	"github.com/pajri/personal-backend/helper"
+)
 
 type IAuthUsecase interface {
 	Login(account Account) (*helper.JWTWrapper, error)
@@ -8,4 +11,5 @@ type IAuthUsecase interface {
 	VerifyEmail(token string) error
 	ResetPassword(email string) error
 	ChangePassword(token, password string) error
+	ParseJWT(tokenString string) (jwt.MapClaims, error)
 }

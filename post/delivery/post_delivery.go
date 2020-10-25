@@ -11,8 +11,8 @@ import (
 
 /* #region type helper */
 type InsertPostResponse struct {
-	Message string
-	Post    domain.Post
+	Message string      `json:"message"`
+	Post    domain.Post `json:"post,omitempty"`
 }
 
 type DeletePostResponse struct {

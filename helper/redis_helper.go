@@ -12,6 +12,7 @@ import (
 
 type IRedis interface {
 	Set(key string, value interface{}, exp int64) error
+	Get(key string) (string, error)
 }
 
 type Redis struct {
@@ -58,4 +59,12 @@ func (rh Redis) Set(key string, value interface{}, exp int64) error {
 		}
 	}
 	return nil
+}
+
+func (rh Redis) Get(key string) (string, error) {
+	value, err := redis.String(rh.Client.Do("GET", key))
+	if err != nil {
+		return "", cerror.NewAndPrintWithTag("GRV00", err, global.FRIENDLY_MESSAGE)
+	}
+	return value, nil
 }

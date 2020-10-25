@@ -3,12 +3,14 @@ package main
 import (
 	"fmt"
 	"log"
-	"os"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	"github.com/pajri/personal-backend/adapter/cerror"
 	"github.com/pajri/personal-backend/config"
 	"github.com/pajri/personal-backend/db"
+	"github.com/pajri/personal-backend/domain"
 	"github.com/pajri/personal-backend/helper"
 	"github.com/stretchr/stew/slice"
 
@@ -66,27 +68,67 @@ func main() {
 	/*end init redis*/
 
 	r := gin.Default()
-	r.Use(middleware())
 
 	postRepo := _postRepository.NewMySqlPostRepository(dbConn)
 	postUsecase := _postUsecase.NewPostUseCase(postRepo)
-	_postDelivery.NewPostHandler(r, postUsecase)
 
 	accountRepo := _accountRepository.NewMySqlAccountRepository(dbConn)
 	profileRepo := _profileRepository.NewMySqlProfileRepository(dbConn)
 	mailHelper := helper.NewEmailHelper()
 	authUsecase := _authUsecase.NewAuthUsecase(accountRepo, profileRepo, mailHelper)
+
+	r.Use(middleware(authUsecase))
+	_postDelivery.NewPostHandler(r, postUsecase)
 	_authDelivery.NewAuthHandler(r, authUsecase)
 
 	r.Run()
 }
 
-func middleware() gin.HandlerFunc {
-	secret := os.Getenv("JWT_SECRET")
-	fmt.Println(secret)
+func middleware(useCase domain.IAuthUsecase) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		fmt.Println("here")
 		if !slice.Contains(excludedFromAuth, c.FullPath()) {
+			authArr := c.Request.Header["Authorization"]
+			if len(authArr) > 0 {
+				token := authArr[0]
 
+				/*start parse jwt*/
+				parsedToken, err := useCase.ParseJWT(token)
+				if err != nil {
+					err.(cerror.Error).PrintErrorWithTag()
+					response := struct {
+						Message string `json:"message"`
+					}{
+						"Authentication was not succesful [AUM00]",
+					}
+
+					c.JSON(http.StatusUnauthorized, response)
+					c.Abort()
+					return
+				}
+				/*end parse jwt*/
+
+				/*start check from redis*/
+				accessToken, err := helper.RedisHelper.Get(parsedToken["access_uuid"].(string))
+				if err != nil || accessToken == "" {
+					if err != nil {
+						err.(cerror.Error).PrintErrorWithTag()
+					}
+
+					response := struct {
+						Message string `json:"message"`
+					}{
+						"Authentication was not succesful [AUM01]",
+					}
+
+					c.JSON(http.StatusUnauthorized, response)
+					c.Abort()
+					return
+				}
+
+			} else {
+				log.Println("token not found")
+			}
 		}
 		c.Next()
 	}
