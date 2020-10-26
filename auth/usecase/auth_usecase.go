@@ -149,7 +149,7 @@ func (uc AuthUsecase) SignUp(account domain.Account, profile domain.Profile) (*d
 }
 
 func (uc AuthUsecase) VerifyEmail(token string) error {
-	payload, err := uc.ParseJWT(token)
+	_, payload, err := uc.ParseJWT(token)
 	if err != nil {
 		return cerror.NewAndPrintWithTag("VEA00", err, global.FRIENDLY_INVALID_TOKEN)
 	}
@@ -221,7 +221,7 @@ func (uc AuthUsecase) ResetPassword(email string) error {
 }
 
 func (uc AuthUsecase) ChangePassword(token, password string) error {
-	payload, err := uc.ParseJWT(token)
+	_, payload, err := uc.ParseJWT(token)
 	if err != nil {
 		return cerror.NewAndPrintWithTag("CPW00", err, global.FRIENDLY_INVALID_TOKEN)
 	}
@@ -300,18 +300,29 @@ func (uc AuthUsecase) comparePassword(passwordInput, salt, storedPassword []byte
 	return nil, true
 }
 
-func (uc AuthUsecase) ParseJWT(tokenString string) (jwt.MapClaims, error) {
+func (uc AuthUsecase) ParseJWT(tokenString string) (*jwt.Token, jwt.MapClaims, error) {
 	claims := jwt.MapClaims{}
-	_, err := jwt.ParseWithClaims(tokenString, claims,
+	token, err := jwt.ParseWithClaims(tokenString, claims,
 		func(token *jwt.Token) (interface{}, error) {
 			return []byte(os.Getenv("JWT_SECRET")), nil
 		})
 
 	if err != nil {
-		return nil, cerror.NewAndPrintWithTag("PJW00", err, global.FRIENDLY_INVALID_TOKEN)
+		friendlyMessage := global.FRIENDLY_INVALID_TOKEN
+		errorType := 0
+
+		verr, ok := err.(*jwt.ValidationError)
+		if ok && verr.Errors == jwt.ValidationErrorExpired {
+			friendlyMessage = global.FRIENDLY_TOKEN_EXPIRED
+			errorType = cerror.TYPE_EXPIRED
+		}
+
+		cerr := cerror.NewAndPrintWithTag("PJW00", err, friendlyMessage)
+		cerr.Type = errorType
+		return token, claims, cerr
 	}
 
-	return claims, nil
+	return token, claims, nil
 }
 
 func (uc AuthUsecase) generateEmailConfirmationUrl(account domain.Account) string {

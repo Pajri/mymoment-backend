@@ -1,16 +1,20 @@
 package main
 
 import (
-	"fmt"
+	"encoding/json"
 	"log"
 	"net/http"
+	"time"
 
+	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 	"github.com/pajri/personal-backend/adapter/cerror"
 	"github.com/pajri/personal-backend/config"
 	"github.com/pajri/personal-backend/db"
 	"github.com/pajri/personal-backend/domain"
+	"github.com/pajri/personal-backend/global"
 	"github.com/pajri/personal-backend/helper"
 	"github.com/stretchr/stew/slice"
 
@@ -77,59 +81,115 @@ func main() {
 	mailHelper := helper.NewEmailHelper()
 	authUsecase := _authUsecase.NewAuthUsecase(accountRepo, profileRepo, mailHelper)
 
-	r.Use(middleware(authUsecase))
+	r.Use(middleware(authUsecase, accountRepo))
 	_postDelivery.NewPostHandler(r, postUsecase)
 	_authDelivery.NewAuthHandler(r, authUsecase)
 
 	r.Run()
 }
 
-func middleware(useCase domain.IAuthUsecase) gin.HandlerFunc {
+func middleware(useCase domain.IAuthUsecase, accountRepo domain.IAccountRepository) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		fmt.Println("here")
 		if !slice.Contains(excludedFromAuth, c.FullPath()) {
 			authArr := c.Request.Header["Authorization"]
 			if len(authArr) > 0 {
 				token := authArr[0]
 
 				/*start parse jwt*/
-				parsedToken, err := useCase.ParseJWT(token)
+				_, parsedToken, err := useCase.ParseJWT(token)
 				if err != nil {
-					err.(cerror.Error).PrintErrorWithTag()
-					response := struct {
-						Message string `json:"message"`
-					}{
-						"Authentication was not succesful [AUM00]",
+					cerr, ok := err.(cerror.Error)
+					if !ok {
+						cerr = cerror.NewAndPrintWithTag("AUM00", err, global.FRIENDLY_MESSAGE)
 					}
 
-					c.JSON(http.StatusUnauthorized, response)
-					c.Abort()
-					return
+					if cerr.Type != cerror.TYPE_EXPIRED {
+						authNotSuccessfulResponse(c, cerr)
+						return
+					}
 				}
 				/*end parse jwt*/
 
 				/*start check from redis*/
-				accessToken, err := helper.RedisHelper.Get(parsedToken["access_uuid"].(string))
-				if err != nil || accessToken == "" {
+				//check if access token exists
+				accessToken, _ := helper.RedisHelper.Get(parsedToken["access_uuid"].(string))
+
+				//check refresh token
+				expire := parsedToken["exp"].(float64)
+				unixInt := int64(expire)
+				expTime := time.Unix(unixInt, 0)
+				if accessToken == "" || time.Now().After(expTime) { //token is expired
+					refreshToken, err := c.Request.Cookie("refresh_token")
 					if err != nil {
-						err.(cerror.Error).PrintErrorWithTag()
+						cerr, ok := err.(cerror.Error)
+						if !ok {
+							cerr = cerror.NewAndPrintWithTag("AUM02", err, global.FRIENDLY_MESSAGE)
+						}
+						authNotSuccessfulResponse(c, cerr)
+						return
 					}
 
-					response := struct {
-						Message string `json:"message"`
-					}{
-						"Authentication was not succesful [AUM01]",
+					parsedRfToken, _, err := useCase.ParseJWT(refreshToken.Value)
+					if err != nil {
+						cerr, ok := err.(cerror.Error)
+						if !ok {
+							cerr = cerror.NewAndPrintWithTag("AUM03", err, global.FRIENDLY_MESSAGE)
+						}
+
+						if cerr.Type == cerror.TYPE_EXPIRED {
+							authNotSuccessfulResponse(c, cerr)
+							return
+						}
 					}
 
-					c.JSON(http.StatusUnauthorized, response)
-					c.Abort()
-					return
+					filter := domain.AccountFilter{
+						AccountID: parsedRfToken.Claims.(jwt.MapClaims)["account_id"].(string),
+					}
+					account, err := accountRepo.GetAccount(filter)
+					if err != nil || account == nil {
+						cerr := cerror.NewAndPrintWithTag("AUM04", err, global.FRIENDLY_MESSAGE)
+						authNotSuccessfulResponse(c, cerr)
+						return
+					}
+
+					accessTokenClaims := jwt.MapClaims{}
+					accessTokenClaims["authorized"] = true
+					accessTokenClaims["account_id"] = account.AccountID
+					accessTokenClaims["access_uuid"] = uuid.New().String()
+					accessTokenClaims["email"] = account.Email
+					accessTokenClaims["exp"] = time.Now().Add(15 * time.Minute).Unix()
+
+					refreshTokenClaims := jwt.MapClaims{}
+					refreshTokenClaims["account_id"] = account.AccountID
+					refreshTokenClaims["refresh_uuid"] = uuid.New().String()
+					refreshTokenClaims["exp"] = time.Now().Add(1 * time.Hour).Unix()
+
+					jwtHelper := helper.JWTHelper{}
+					token, err := jwtHelper.CreateTokenPair(accessTokenClaims, refreshTokenClaims)
+					if err != nil {
+						cerr := cerror.NewAndPrintWithTag("AUM05", err, global.FRIENDLY_MESSAGE)
+						authNotSuccessfulResponse(c, cerr)
+						return
+					}
+
+					tokenByte, _ := json.Marshal(token)
+					tokenString := string(tokenByte)
+					c.SetCookie("token", tokenString, 0, "", "", false, false)
 				}
-
 			} else {
 				log.Println("token not found")
 			}
 		}
 		c.Next()
 	}
+}
+
+func authNotSuccessfulResponse(c *gin.Context, err cerror.Error) {
+	response := struct {
+		Message string `json:"message"`
+	}{err.FriendlyMessageWithTag()}
+
+	c.JSON(http.StatusUnauthorized, response)
+	c.Abort()
+	return
 }

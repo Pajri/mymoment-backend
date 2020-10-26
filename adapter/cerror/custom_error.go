@@ -6,6 +6,7 @@ const (
 	TYPE_UNDEFINED    = 0
 	TYPE_NOT_FOUND    = 1
 	TYPE_UNAUTHORIZED = 2
+	TYPE_EXPIRED      = 3
 )
 
 type Error struct {

@@ -29,6 +29,10 @@ func (ur MySqlUserRepository) GetAccount(filter domain.AccountFilter) (*domain.A
 		query = query.Where(sq.Eq{"email": filter.Email})
 	}
 
+	if filter.AccountID != "" {
+		query = query.Where(sq.Eq{"account_id": filter.AccountID})
+	}
+
 	sqlString, args, err := query.ToSql()
 	if err != nil {
 		return nil, cerror.NewAndPrintWithTag("GA00", err, global.FRIENDLY_MESSAGE)

@@ -11,5 +11,5 @@ type IAuthUsecase interface {
 	VerifyEmail(token string) error
 	ResetPassword(email string) error
 	ChangePassword(token, password string) error
-	ParseJWT(tokenString string) (jwt.MapClaims, error)
+	ParseJWT(tokenString string) (*jwt.Token, jwt.MapClaims, error)
 }

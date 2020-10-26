@@ -17,5 +17,6 @@ type IAccountRepository interface {
 }
 
 type AccountFilter struct {
-	Email string
+	AccountID string
+	Email     string
 }
