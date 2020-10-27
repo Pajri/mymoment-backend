@@ -51,10 +51,15 @@ func (ur MySqlPostRepository) InsertPost(post domain.Post) error {
 	if err != nil {
 		tx.Rollback()
 		return cerror.NewAndPrintWithTag("IP03", err, global.FRIENDLY_MESSAGE)
-
 	}
 
-	return tx.Commit()
+	err = tx.Commit()
+	if err != nil {
+		tx.Rollback()
+		return cerror.NewAndPrintWithTag("IP04", err, global.FRIENDLY_MESSAGE)
+	}
+
+	return nil
 	/*end insert execution*/
 }
 

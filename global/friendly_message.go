@@ -8,6 +8,8 @@ const (
 	FRIENDLY_INVALID_TOKEN          = "Token is invalid"
 	FRIENDLY_TOKEN_EXPIRED          = "Token is expired"
 	FRIENDLY_TOKEN_REQUIRED         = "Token is required"
+	FRIENDLY_IMAGE_REQUIRED         = "Image is required"
 	FRIENDLY_EMAIL_NOT_VERIFIED     = "Email has not been verified"
 	FRIENDLY_INVALID_EMAIL_FORMAT   = "Invalid email format"
+	FRIENDLY_IMAGE_NOT_ALLOWED      = "Image type %s is not allowed"
 )

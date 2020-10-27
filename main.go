@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"time"
@@ -26,6 +27,10 @@ import (
 	_authDelivery "github.com/pajri/personal-backend/auth/delivery"
 	_authUsecase "github.com/pajri/personal-backend/auth/usecase"
 	_profileRepository "github.com/pajri/personal-backend/profile/repository/mysql"
+
+	_imageDelivery "github.com/pajri/personal-backend/image/delivery"
+	_imageRepository "github.com/pajri/personal-backend/image/repository/mysql"
+	_imageUsecase "github.com/pajri/personal-backend/image/usecase"
 )
 
 var excludedFromAuth = []string{
@@ -72,18 +77,26 @@ func main() {
 	/*end init redis*/
 
 	r := gin.Default()
+	//setup helper
+	mailHelper := helper.NewEmailHelper()
 
+	//setup repo and usecase
 	postRepo := _postRepository.NewMySqlPostRepository(dbConn)
 	postUsecase := _postUsecase.NewPostUseCase(postRepo)
 
-	accountRepo := _accountRepository.NewMySqlAccountRepository(dbConn)
 	profileRepo := _profileRepository.NewMySqlProfileRepository(dbConn)
-	mailHelper := helper.NewEmailHelper()
+
+	accountRepo := _accountRepository.NewMySqlAccountRepository(dbConn)
+
 	authUsecase := _authUsecase.NewAuthUsecase(accountRepo, profileRepo, mailHelper)
+
+	imageRepo := _imageRepository.NewMySqlImageRepository(dbConn)
+	imageUsecase := _imageUsecase.NewImageUsecase(imageRepo)
 
 	r.Use(middleware(authUsecase, accountRepo))
 	_postDelivery.NewPostHandler(r, postUsecase)
 	_authDelivery.NewAuthHandler(r, authUsecase)
+	_imageDelivery.NewImageHandler(r, imageUsecase)
 
 	r.Run()
 }
@@ -92,6 +105,8 @@ func middleware(useCase domain.IAuthUsecase, accountRepo domain.IAccountReposito
 	return func(c *gin.Context) {
 		if !slice.Contains(excludedFromAuth, c.FullPath()) {
 			authArr := c.Request.Header["Authorization"]
+			var accountID, email string
+
 			if len(authArr) > 0 {
 				token := authArr[0]
 
@@ -104,9 +119,14 @@ func middleware(useCase domain.IAuthUsecase, accountRepo domain.IAccountReposito
 					}
 
 					if cerr.Type != cerror.TYPE_EXPIRED {
-						authNotSuccessfulResponse(c, cerr)
+						authNotSuccessfulResponse(c, 0, cerr)
 						return
 					}
+				}
+
+				if parsedToken != nil {
+					accountID = parsedToken["account_id"].(string)
+					email = parsedToken["email"].(string)
 				}
 				/*end parse jwt*/
 
@@ -125,7 +145,7 @@ func middleware(useCase domain.IAuthUsecase, accountRepo domain.IAccountReposito
 						if !ok {
 							cerr = cerror.NewAndPrintWithTag("AUM02", err, global.FRIENDLY_MESSAGE)
 						}
-						authNotSuccessfulResponse(c, cerr)
+						authNotSuccessfulResponse(c, 0, cerr)
 						return
 					}
 
@@ -136,10 +156,8 @@ func middleware(useCase domain.IAuthUsecase, accountRepo domain.IAccountReposito
 							cerr = cerror.NewAndPrintWithTag("AUM03", err, global.FRIENDLY_MESSAGE)
 						}
 
-						if cerr.Type == cerror.TYPE_EXPIRED {
-							authNotSuccessfulResponse(c, cerr)
-							return
-						}
+						authNotSuccessfulResponse(c, 0, cerr)
+						return
 					}
 
 					filter := domain.AccountFilter{
@@ -148,7 +166,7 @@ func middleware(useCase domain.IAuthUsecase, accountRepo domain.IAccountReposito
 					account, err := accountRepo.GetAccount(filter)
 					if err != nil || account == nil {
 						cerr := cerror.NewAndPrintWithTag("AUM04", err, global.FRIENDLY_MESSAGE)
-						authNotSuccessfulResponse(c, cerr)
+						authNotSuccessfulResponse(c, 0, cerr)
 						return
 					}
 
@@ -159,6 +177,9 @@ func middleware(useCase domain.IAuthUsecase, accountRepo domain.IAccountReposito
 					accessTokenClaims["email"] = account.Email
 					accessTokenClaims["exp"] = time.Now().Add(15 * time.Minute).Unix()
 
+					accountID = account.AccountID
+					email = account.Email
+
 					refreshTokenClaims := jwt.MapClaims{}
 					refreshTokenClaims["account_id"] = account.AccountID
 					refreshTokenClaims["refresh_uuid"] = uuid.New().String()
@@ -168,14 +189,24 @@ func middleware(useCase domain.IAuthUsecase, accountRepo domain.IAccountReposito
 					token, err := jwtHelper.CreateTokenPair(accessTokenClaims, refreshTokenClaims)
 					if err != nil {
 						cerr := cerror.NewAndPrintWithTag("AUM05", err, global.FRIENDLY_MESSAGE)
-						authNotSuccessfulResponse(c, cerr)
+						authNotSuccessfulResponse(c, 0, cerr)
 						return
 					}
 
 					tokenByte, _ := json.Marshal(token)
 					tokenString := string(tokenByte)
 					c.SetCookie("token", tokenString, 0, "", "", false, false)
+				} else {
+					if accessToken != token { //compare token from redis with token from header
+						cerr := cerror.NewAndPrintWithTag("AUM06",
+							errors.New("token from header is different from token from redis"), "")
+						authNotSuccessfulResponse(c, 0, cerr)
+						return
+					}
 				}
+
+				c.Set("account_id", accountID)
+				c.Set("email", email)
 			} else {
 				log.Println("token not found")
 			}
@@ -184,12 +215,15 @@ func middleware(useCase domain.IAuthUsecase, accountRepo domain.IAccountReposito
 	}
 }
 
-func authNotSuccessfulResponse(c *gin.Context, err cerror.Error) {
+func authNotSuccessfulResponse(c *gin.Context, status int, err cerror.Error) {
+	if status == 0 {
+		status = http.StatusUnauthorized
+	}
 	response := struct {
 		Message string `json:"message"`
 	}{err.FriendlyMessageWithTag()}
 
-	c.JSON(http.StatusUnauthorized, response)
+	c.JSON(status, response)
 	c.Abort()
 	return
 }
