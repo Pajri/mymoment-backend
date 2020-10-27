@@ -16,10 +16,10 @@ type Post struct {
 
 type IPostRepository interface {
 	InsertPost(post Post) error
-	DeletePost(postId string) error
+	DeletePost(postID, accountID string) error
 }
 
 type IPostUsecase interface {
 	InsertPost(post Post) (*Post, error)
-	DeletePost(postId string) error
+	DeletePost(postID, accountID string) error
 }

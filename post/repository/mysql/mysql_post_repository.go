@@ -63,9 +63,14 @@ func (ur MySqlPostRepository) InsertPost(post domain.Post) error {
 	/*end insert execution*/
 }
 
-func (ur MySqlPostRepository) DeletePost(PostId string) error {
+func (ur MySqlPostRepository) DeletePost(postID, accountID string) error {
 	/*start create query*/
-	query := sq.Delete("post").Where(sq.Eq{"post_id": PostId})
+	query := sq.Delete("post").
+		Where(sq.Eq{
+			"post_id":    postID,
+			"account_id": accountID,
+		})
+
 	sql, args, err := query.ToSql()
 	if err != nil {
 		return cerror.NewAndPrintWithTag("DP00", err, global.FRIENDLY_MESSAGE)

@@ -27,7 +27,7 @@ func (uc PostUsecase) InsertPost(post domain.Post) (*domain.Post, error) {
 	return &post, nil
 }
 
-func (uc PostUsecase) DeletePost(postID string) error {
-	err := uc.postRepo.DeletePost(postID)
+func (uc PostUsecase) DeletePost(postID, accountID string) error {
+	err := uc.postRepo.DeletePost(postID, accountID)
 	return err
 }

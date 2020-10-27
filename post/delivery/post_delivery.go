@@ -19,11 +19,16 @@ type InsertPostResponse struct {
 }
 
 type InsertPostRequest struct {
-	Content string `json:"content" binding:"required"`
+	Content  string `json:"content" binding:"required"`
+	ImageURL string `json:"image_url" binding:"required"`
+}
+
+type DeletePostRequest struct {
+	PostID string `json:"post_id" binding:"required"`
 }
 
 type DeletePostResponse struct {
-	Message string
+	Message []string `json:"message"`
 }
 
 /* #endregion */
@@ -79,6 +84,7 @@ func (ph PostHandler) InsertPost(c *gin.Context) {
 
 	var post domain.Post
 	post.Content = request.Content
+	post.ImageURL = request.ImageURL
 	post.AccountID = accountID
 
 	var storedPost *domain.Post
@@ -95,23 +101,41 @@ func (ph PostHandler) InsertPost(c *gin.Context) {
 }
 
 func (ph PostHandler) DeletePost(c *gin.Context) {
-	var post domain.Post
-	err := c.ShouldBind(&post)
+	var (
+		request   DeletePostRequest
+		response  DeletePostResponse
+		accountID string = c.GetString("account_id")
+	)
+
+	err := c.ShouldBind(&request)
 	if err != nil {
 		cerr := cerror.NewAndPrintWithTag("DPH00", err, global.FRIENDLY_MESSAGE)
-		response := DeletePostResponse{
-			Message: cerr.FriendlyMessageWithTag(),
-		}
 
+		valError := err.(validator.ValidationErrors)
+		if valError != nil {
+			for _, elem := range valError {
+				fieldName := elem.Field()
+				field, _ := reflect.TypeOf(&request).Elem().FieldByName(fieldName)
+				jsonField, _ := field.Tag.Lookup("json")
+
+				switch elem.Tag() {
+				case "required":
+					msg := fmt.Sprintf(global.ERR_REQUIRED_FORMATTER, jsonField)
+					response.Message = append(response.Message, msg)
+					break
+				}
+			}
+
+			c.JSON(http.StatusBadRequest, response)
+			return
+		}
+		response.Message = []string{cerr.FriendlyMessageWithTag()}
 		c.JSON(http.StatusInternalServerError, response)
 	}
 
-	err = ph.useCase.DeletePost(post.PostID)
+	err = ph.useCase.DeletePost(request.PostID, accountID)
 	if err != nil {
-		response := DeletePostResponse{
-			Message: err.(cerror.Error).FriendlyMessageWithTag(),
-		}
-
+		response.Message = []string{err.(cerror.Error).FriendlyMessageWithTag()}
 		c.JSON(http.StatusInternalServerError, response)
 		return
 	}
