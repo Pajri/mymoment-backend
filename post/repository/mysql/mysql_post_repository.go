@@ -95,5 +95,11 @@ func (ur MySqlPostRepository) DeletePost(postID, accountID string) error {
 		return cerror.NewAndPrintWithTag("DP03", err, global.FRIENDLY_MESSAGE)
 	}
 
+	err = tx.Commit()
+	if err != nil {
+		tx.Rollback()
+		return cerror.NewAndPrintWithTag("DP04", err, global.FRIENDLY_MESSAGE)
+	}
+
 	return tx.Commit()
 }
