@@ -4,6 +4,7 @@ type Configuration struct {
 	DB                DBConfig
 	SMTP              SMTP
 	Host              string
+	FEHost            string
 	EmailVerification EmailVerificationConfig
 	ResetPassword     ResetPasswordConfig
 	Redis             RedisConfig

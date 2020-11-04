@@ -326,7 +326,7 @@ func (uc AuthUsecase) ParseJWT(tokenString string) (*jwt.Token, jwt.MapClaims, e
 }
 
 func (uc AuthUsecase) generateEmailConfirmationUrl(account domain.Account) string {
-	url := fmt.Sprintf("%s/api/auth/verify_email?token=%s", config.Config.Host, account.EmailToken)
+	url := fmt.Sprintf("%s/email_confirmation?token=%s", config.Config.FEHost, account.EmailToken)
 	return url
 }
 

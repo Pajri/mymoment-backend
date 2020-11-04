@@ -7,6 +7,7 @@ import (
 	"reflect"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/validator"
 	"github.com/pajri/personal-backend/adapter/cerror"
 	"github.com/pajri/personal-backend/domain"
@@ -26,10 +27,10 @@ type LoginResponse struct {
 }
 
 type SignUpRequest struct {
-	Fullname        string `json:"full_name" binding:"required"`
-	Email           string `json:"email" binding:"required"`
-	Password        string `json:"password" binding:"required"`
-	ConfirmPassword string `json:"confirm_password" binding:"required,eqfield=Password"`
+	Fullname        string `form:"full_name" binding:"required"`
+	Email           string `form:"email" binding:"required"`
+	Password        string `form:"password" binding:"required,min=10"`
+	ConfirmPassword string `form:"confirm_password" binding:"required,eqfield=Password"`
 }
 
 type SignUpResponse struct {
@@ -148,7 +149,7 @@ func (ah AuthHandler) SignUp(c *gin.Context) {
 		response SignUpResponse
 	)
 
-	err := c.ShouldBind(&request)
+	err := c.ShouldBindWith(&request, binding.Form)
 	if err != nil {
 		cerr := cerror.NewAndPrintWithTag("ASU00", err, global.FRIENDLY_MESSAGE)
 
@@ -158,7 +159,7 @@ func (ah AuthHandler) SignUp(c *gin.Context) {
 			for _, elem := range valError {
 				fieldName := elem.Field()
 				field, _ := reflect.TypeOf(&request).Elem().FieldByName(fieldName)
-				jsonField, _ := field.Tag.Lookup("json")
+				jsonField, _ := field.Tag.Lookup("form")
 
 				switch elem.Tag() {
 				case "required":
@@ -170,7 +171,14 @@ func (ah AuthHandler) SignUp(c *gin.Context) {
 					msg := fmt.Sprintf(global.ERR_DIFFERENT_FORMATTER, jsonField, "password")
 					response.Message = append(response.Message, msg)
 					break
+
+				case "min":
+					msg := fmt.Sprintf(global.ERR_MIN_CHAR, jsonField, elem.Param())
+					response.Message = append(response.Message, msg)
+					fmt.Println(msg)
+					break
 				}
+
 			}
 
 			c.JSON(http.StatusBadRequest, response)

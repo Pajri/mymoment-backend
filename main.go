@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/joho/godotenv"
@@ -45,6 +46,8 @@ func main() {
 	//init config
 	config.InitConfig()
 
+	global.InitEnv()
+
 	/* start init db*/
 	dbConn, err := db.InitDB()
 	if err != nil {
@@ -77,6 +80,10 @@ func main() {
 	/*end init redis*/
 
 	r := gin.Default()
+	r.Use(cors.New(cors.Config{
+		AllowOrigins: []string{"http://localhost:8080"},
+	}))
+
 	//setup helper
 	mailHelper := helper.NewEmailHelper()
 
@@ -98,12 +105,13 @@ func main() {
 	_authDelivery.NewAuthHandler(r, authUsecase)
 	_imageDelivery.NewImageHandler(r, imageUsecase)
 
-	r.Run()
+	r.Run(":5000")
+
 }
 
 func middleware(useCase domain.IAuthUsecase, accountRepo domain.IAccountRepository) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if !slice.Contains(excludedFromAuth, c.FullPath()) {
+		if !global.IsEnvDevelopment() && !slice.Contains(excludedFromAuth, c.FullPath()) {
 			authArr := c.Request.Header["Authorization"]
 			var accountID, email string
 
