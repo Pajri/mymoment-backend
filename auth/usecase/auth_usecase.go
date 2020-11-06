@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"os"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
@@ -61,31 +60,7 @@ func (uc AuthUsecase) Login(account domain.Account) (*helper.JWTWrapper, error) 
 			return nil, cerr
 		}
 
-		accessTokenClaims := jwt.MapClaims{}
-		accessTokenClaims["authorized"] = true
-		accessTokenClaims["account_id"] = regAccount.AccountID
-		accessTokenClaims["access_uuid"] = uuid.New().String()
-		accessTokenClaims["email"] = regAccount.Email
-		accessTokenClaims["exp"] = time.Now().Add(15 * time.Minute).Unix()
-
-		refreshTokenClaims := jwt.MapClaims{}
-		refreshTokenClaims["account_id"] = regAccount.AccountID
-		refreshTokenClaims["refresh_uuid"] = uuid.New().String()
-		refreshTokenClaims["exp"] = time.Now().Add(1 * time.Hour).Unix()
-
-		jwtHelper := helper.JWTHelper{}
-		token, err := jwtHelper.CreateTokenPair(accessTokenClaims, refreshTokenClaims)
-		if err != nil {
-			return nil, err
-		}
-
-		//todo make helper for redigo
-		err = helper.RedisHelper.Set(accessTokenClaims["access_uuid"].(string), token.AccessToken, accessTokenClaims["exp"].(int64))
-		if err != nil {
-			return nil, err
-		}
-
-		err = helper.RedisHelper.Set(refreshTokenClaims["refresh_uuid"].(string), token.RefreshToken, refreshTokenClaims["exp"].(int64))
+		token, err := uc.createTokenPair(*regAccount)
 		if err != nil {
 			return nil, err
 		}
@@ -148,11 +123,49 @@ func (uc AuthUsecase) SignUp(account domain.Account, profile domain.Profile) (*d
 	return insertedAccount, &profile, nil
 }
 
+func (uc AuthUsecase) RefreshToken(refreshToken string) (*helper.JWTWrapper, error) {
+	jwtHelper := helper.JWTHelper{}
+	token, err := jwtHelper.ParseToken(refreshToken)
+	if err != nil {
+		//including expiration error
+		//so, no need further check for token expiration
+		//just handle in auth delivery
+		return nil, err
+	}
+	mapClaims := token.Claims.(jwt.MapClaims)
+
+	//validate token in redis
+	rtRedis, _ := helper.RedisHelper.Get(mapClaims["refresh_uuid"].(string))
+	if rtRedis == "" {
+		//token is expired
+		cerr := cerror.NewAndPrintWithTag("RTU00", errors.New("token_expired"), global.FRIENDLY_TOKEN_EXPIRED)
+		cerr.Type = cerror.TYPE_EXPIRED
+		return nil, cerr
+	}
+
+	//get account
+	accountID := mapClaims["account_id"].(string)
+	filter := domain.AccountFilter{AccountID: accountID}
+	account, err := uc.accountRepo.GetAccount(filter)
+	if err != nil {
+		return nil, err
+	}
+
+	//create token
+	tokenPair, err := uc.createTokenPair(*account)
+	if err != nil {
+		return nil, err
+	}
+	return tokenPair, nil
+}
+
 func (uc AuthUsecase) VerifyEmail(token string) error {
-	_, payload, err := uc.ParseJWT(token)
+	jwtHelper := helper.JWTHelper{}
+	parsedToken, err := jwtHelper.ParseToken(token)
 	if err != nil {
 		return cerror.NewAndPrintWithTag("VEA00", err, global.FRIENDLY_INVALID_TOKEN)
 	}
+	payload := parsedToken.Claims.(jwt.MapClaims)
 
 	expire := payload["exp"].(float64)
 	email := payload["email"].(string)
@@ -221,10 +234,12 @@ func (uc AuthUsecase) ResetPassword(email string) error {
 }
 
 func (uc AuthUsecase) ChangePassword(token, password string) error {
-	_, payload, err := uc.ParseJWT(token)
+	jwtHelper := helper.JWTHelper{}
+	parsedToken, err := jwtHelper.ParseToken(token)
 	if err != nil {
 		return cerror.NewAndPrintWithTag("CPW00", err, global.FRIENDLY_INVALID_TOKEN)
 	}
+	payload := parsedToken.Claims.(jwt.MapClaims)
 
 	expire := payload["exp"].(float64)
 	email := payload["email"].(string)
@@ -300,31 +315,6 @@ func (uc AuthUsecase) comparePassword(passwordInput, salt, storedPassword []byte
 	return nil, true
 }
 
-func (uc AuthUsecase) ParseJWT(tokenString string) (*jwt.Token, jwt.MapClaims, error) {
-	claims := jwt.MapClaims{}
-	token, err := jwt.ParseWithClaims(tokenString, claims,
-		func(token *jwt.Token) (interface{}, error) {
-			return []byte(os.Getenv("JWT_SECRET")), nil
-		})
-
-	if err != nil {
-		friendlyMessage := global.FRIENDLY_INVALID_TOKEN
-		errorType := 0
-
-		verr, ok := err.(*jwt.ValidationError)
-		if ok && verr.Errors == jwt.ValidationErrorExpired {
-			friendlyMessage = global.FRIENDLY_TOKEN_EXPIRED
-			errorType = cerror.TYPE_EXPIRED
-		}
-
-		cerr := cerror.NewAndPrintWithTag("PJW00", err, friendlyMessage)
-		cerr.Type = errorType
-		return token, claims, cerr
-	}
-
-	return token, claims, nil
-}
-
 func (uc AuthUsecase) generateEmailConfirmationUrl(account domain.Account) string {
 	url := fmt.Sprintf("%s/email_confirmation?token=%s", config.Config.FEHost, account.EmailToken)
 	return url
@@ -333,4 +323,36 @@ func (uc AuthUsecase) generateEmailConfirmationUrl(account domain.Account) strin
 func (uc AuthUsecase) generateResetPasswordUrl(token string) string {
 	url := fmt.Sprintf("%s/api/auth/change_password?token=%s", config.Config.Host, token)
 	return url
+}
+
+func (uc AuthUsecase) createTokenPair(account domain.Account) (*helper.JWTWrapper, error) {
+	accessTokenClaims := jwt.MapClaims{}
+	accessTokenClaims["authorized"] = true
+	accessTokenClaims["account_id"] = account.AccountID
+	accessTokenClaims["access_uuid"] = uuid.New().String()
+	accessTokenClaims["email"] = account.Email
+	accessTokenClaims["exp"] = time.Now().Add(15 * time.Minute).Unix()
+
+	refreshTokenClaims := jwt.MapClaims{}
+	refreshTokenClaims["account_id"] = account.AccountID
+	refreshTokenClaims["refresh_uuid"] = uuid.New().String()
+	refreshTokenClaims["exp"] = time.Now().Add(1 * time.Hour).Unix()
+
+	jwtHelper := helper.JWTHelper{}
+	token, err := jwtHelper.CreateTokenPair(accessTokenClaims, refreshTokenClaims)
+	if err != nil {
+		return nil, err
+	}
+
+	err = helper.RedisHelper.Set(accessTokenClaims["access_uuid"].(string), token.AccessToken, accessTokenClaims["exp"].(int64))
+	if err != nil {
+		return nil, err
+	}
+
+	err = helper.RedisHelper.Set(refreshTokenClaims["refresh_uuid"].(string), token.RefreshToken, refreshTokenClaims["exp"].(int64))
+	if err != nil {
+		return nil, err
+	}
+
+	return token, nil
 }

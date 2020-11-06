@@ -16,14 +16,13 @@ import (
 
 // #region type helper
 type LoginRequest struct {
-	Email    string `json:"email" binding:"required"`
-	Password string `json:"password" binding:"required"`
+	Email    string `form:"email" binding:"required"`
+	Password string `form:"password" binding:"required"`
 }
 
 type LoginResponse struct {
-	Message      []string `json:"message"`
-	AccessToken  string   `json:"access_token"`
-	RefreshToken string   `json:"refresh_token"`
+	Message     []string `json:"message"`
+	AccessToken string   `json:"access_token"`
 }
 
 type SignUpRequest struct {
@@ -37,6 +36,12 @@ type SignUpResponse struct {
 	Message []string        `json:"message"`
 	Account *domain.Account `json:"account"`
 	Profile *domain.Profile `json:"profile"`
+}
+
+type RefreshTokenResponse struct {
+	ErrorType   string `json:"error_type"`
+	Message     string `json:"message"`
+	AccessToken string `json:"access_token"`
 }
 
 type VerifyResponse struct {
@@ -73,6 +78,7 @@ func NewAuthHandler(router *gin.Engine, authUsecase domain.IAuthUsecase) {
 
 	router.POST("/api/auth/login", handler.Login)
 	router.POST("/api/auth/signup", handler.SignUp)
+	router.POST("/api/auth/refresh_token", handler.RefreshToken)
 	router.GET("/api/auth/verify_email", handler.VerifyEmail)
 	router.POST("/api/auth/reset_password/", handler.ResetPassword)
 	router.POST("/api/auth/change_password", handler.ChangePassword)
@@ -138,7 +144,13 @@ func (ah AuthHandler) Login(c *gin.Context) {
 	}
 
 	response.AccessToken = token.AccessToken
-	response.RefreshToken = token.RefreshToken
+
+	cookie := &http.Cookie{}
+	cookie.Name = "refresh_token"
+	cookie.Value = token.RefreshToken
+	cookie.HttpOnly = true
+	http.SetCookie(c.Writer, cookie)
+
 	c.JSON(http.StatusOK, response)
 	return
 }
@@ -175,7 +187,6 @@ func (ah AuthHandler) SignUp(c *gin.Context) {
 				case "min":
 					msg := fmt.Sprintf(global.ERR_MIN_CHAR, jsonField, elem.Param())
 					response.Message = append(response.Message, msg)
-					fmt.Println(msg)
 					break
 				}
 
@@ -213,6 +224,58 @@ func (ah AuthHandler) SignUp(c *gin.Context) {
 	c.JSON(http.StatusCreated, response)
 }
 
+func (ah AuthHandler) RefreshToken(c *gin.Context) {
+	var response RefreshTokenResponse
+
+	rtCookie, err := c.Request.Cookie("refresh_token")
+	if err != nil {
+		var cerr cerror.Error
+		if err == http.ErrNoCookie {
+			cerr = cerror.NewAndPrintWithTag("RTH00", err, err.Error())
+		} else {
+			cerr = cerror.NewAndPrintWithTag("RTH01", err, global.FRIENDLY_MESSAGE)
+		}
+
+		response.Message = cerr.FriendlyMessageWithTag()
+		c.JSON(http.StatusBadRequest, response)
+		return
+	}
+
+	refreshToken := rtCookie.Value
+	token, err := ah.useCase.RefreshToken(refreshToken)
+	if err != nil {
+		//handle token expired
+		cerr, ok := err.(cerror.Error)
+		if ok {
+			if cerr.Type == cerror.TYPE_EXPIRED {
+				//response refresh token expired
+				response.ErrorType = "token_expired"
+			}
+			response.Message = cerr.FriendlyMessageWithTag()
+			c.JSON(http.StatusUnauthorized, response)
+			return
+		}
+
+		cerr = cerror.NewAndPrintWithTag("RTH02", err, global.FRIENDLY_MESSAGE)
+		response.Message = cerr.FriendlyMessageWithTag()
+		c.JSON(http.StatusInternalServerError, response)
+		return
+	}
+
+	//set new access token to resopnse
+	response.AccessToken = token.AccessToken
+
+	//set new refresh token to cookie
+	cookie := &http.Cookie{}
+	cookie.Name = "refresh_token"
+	cookie.Value = token.RefreshToken
+	cookie.HttpOnly = true
+	http.SetCookie(c.Writer, cookie)
+
+	c.JSON(http.StatusOK, response)
+	return
+}
+
 func (ah AuthHandler) VerifyEmail(c *gin.Context) {
 	var (
 		emailToken string
@@ -227,11 +290,11 @@ func (ah AuthHandler) VerifyEmail(c *gin.Context) {
 			_, ok := err.(cerror.Error)
 			if ok {
 				cerr := err.(cerror.Error)
-				response.Message = cerr.FriendlyMessage
+				response.Message = cerr.FriendlyMessageWithTag()
 			}
 
 			cerr := cerror.NewAndPrintWithTag("VEH00", err, global.FRIENDLY_MESSAGE)
-			response.Message = cerr.FriendlyMessage
+			response.Message = cerr.FriendlyMessageWithTag()
 			c.JSON(http.StatusInternalServerError, response)
 			return
 		}

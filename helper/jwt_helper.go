@@ -46,16 +46,28 @@ func (j JWTHelper) CreateToken(claims jwt.MapClaims) (string, error) {
 	return token, nil
 }
 
-func (j JWTWrapper) ParseToken(tokenString string) (*jwt.MapClaims, error) {
+func (j JWTHelper) ParseToken(tokenString string) (*jwt.Token, error) {
 	claims := jwt.MapClaims{}
-	_, err := jwt.ParseWithClaims(tokenString, claims,
+
+	token, err := jwt.ParseWithClaims(tokenString, claims,
 		func(token *jwt.Token) (interface{}, error) {
 			return []byte(os.Getenv("JWT_SECRET")), nil
 		})
 
 	if err != nil {
-		return nil, cerror.NewAndPrintWithTag("PTH00", err, global.FRIENDLY_MESSAGE)
+		friendlyMessage := global.FRIENDLY_INVALID_TOKEN
+		errorType := 0
+
+		verr, ok := err.(*jwt.ValidationError)
+		if ok && verr.Errors == jwt.ValidationErrorExpired {
+			friendlyMessage = global.FRIENDLY_TOKEN_EXPIRED
+			errorType = cerror.TYPE_EXPIRED
+		}
+
+		cerr := cerror.NewAndPrintWithTag("PJW00", err, friendlyMessage)
+		cerr.Type = errorType
+		return token, cerr
 	}
 
-	return &claims, err
+	return token, nil
 }
