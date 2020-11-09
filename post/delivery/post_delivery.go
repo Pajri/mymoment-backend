@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator"
+	"github.com/microcosm-cc/bluemonday"
 	"github.com/pajri/personal-backend/adapter/cerror"
 	"github.com/pajri/personal-backend/domain"
 	"github.com/pajri/personal-backend/global"
@@ -19,8 +20,8 @@ type InsertPostResponse struct {
 }
 
 type InsertPostRequest struct {
-	Content  string `json:"content" binding:"required"`
-	ImageURL string `json:"image_url" binding:"required"`
+	Content  string `form:"content" binding:"required"`
+	ImageURL string `form:"image_url"`
 }
 
 type DeletePostRequest struct {
@@ -63,7 +64,7 @@ func (ph PostHandler) InsertPost(c *gin.Context) {
 			for _, elem := range valError {
 				fieldName := elem.Field()
 				field, _ := reflect.TypeOf(&request).Elem().FieldByName(fieldName)
-				jsonField, _ := field.Tag.Lookup("json")
+				jsonField, _ := field.Tag.Lookup("form")
 
 				switch elem.Tag() {
 				case "required":
@@ -81,6 +82,10 @@ func (ph PostHandler) InsertPost(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, response)
 		return
 	}
+
+	//sanitize input
+	p := bluemonday.UGCPolicy()
+	request.Content = p.Sanitize(request.Content)
 
 	var post domain.Post
 	post.Content = request.Content
@@ -116,7 +121,7 @@ func (ph PostHandler) DeletePost(c *gin.Context) {
 			for _, elem := range valError {
 				fieldName := elem.Field()
 				field, _ := reflect.TypeOf(&request).Elem().FieldByName(fieldName)
-				jsonField, _ := field.Tag.Lookup("json")
+				jsonField, _ := field.Tag.Lookup("form")
 
 				switch elem.Tag() {
 				case "required":

@@ -12,6 +12,7 @@ import (
 	"github.com/pajri/personal-backend/adapter/cerror"
 	"github.com/pajri/personal-backend/domain"
 	"github.com/pajri/personal-backend/global"
+	"github.com/pajri/personal-backend/helper"
 )
 
 // #region type helper
@@ -145,10 +146,8 @@ func (ah AuthHandler) Login(c *gin.Context) {
 
 	response.AccessToken = token.AccessToken
 
-	cookie := &http.Cookie{}
-	cookie.Name = "refresh_token"
-	cookie.Value = token.RefreshToken
-	cookie.HttpOnly = true
+	cookieHelper := helper.CookieHelper{}
+	cookie := cookieHelper.SetHttpOnlyCookie("refresh_token", token.RefreshToken)
 	http.SetCookie(c.Writer, cookie)
 
 	c.JSON(http.StatusOK, response)
@@ -266,10 +265,9 @@ func (ah AuthHandler) RefreshToken(c *gin.Context) {
 	response.AccessToken = token.AccessToken
 
 	//set new refresh token to cookie
-	cookie := &http.Cookie{}
-	cookie.Name = "refresh_token"
-	cookie.Value = token.RefreshToken
-	cookie.HttpOnly = true
+	cookieHelper := helper.CookieHelper{}
+	cookie := cookieHelper.SetHttpOnlyCookie("refresh_token", token.RefreshToken)
+
 	http.SetCookie(c.Writer, cookie)
 
 	c.JSON(http.StatusOK, response)

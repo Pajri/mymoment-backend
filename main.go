@@ -65,7 +65,9 @@ func main() {
 
 	r := gin.Default()
 	r.Use(cors.New(cors.Config{
-		AllowOrigins: []string{"http://localhost:8080"},
+		AllowOrigins:     []string{config.Config.FEHost},
+		AllowMethods:     []string{"GET", "POST"},
+		AllowCredentials: true,
 	}))
 
 	//setup helper

@@ -12,4 +12,5 @@ const (
 	FRIENDLY_EMAIL_NOT_VERIFIED     = "Email has not been verified"
 	FRIENDLY_INVALID_EMAIL_FORMAT   = "Invalid email format"
 	FRIENDLY_IMAGE_NOT_ALLOWED      = "Image type %s is not allowed"
+	FRIENDLY_INVALID_FORMAT         = "invalid format for %s"
 )
