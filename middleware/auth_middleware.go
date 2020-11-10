@@ -37,10 +37,10 @@ func handleAuth(c *gin.Context, useCase domain.IAuthUsecase) bool {
 
 				if cerr.Type != cerror.TYPE_EXPIRED {
 					resp := AuthResponse{
-						ErrorType: "internal_server_error",
+						ErrorType: "token_invalid",
 						Message:   cerr.FriendlyMessageWithTag(),
 					}
-					c.JSON(http.StatusInternalServerError, resp)
+					c.JSON(http.StatusUnauthorized, resp)
 					return false
 				} else {
 					resp := AuthResponse{ErrorType: "token_expired"}
@@ -52,10 +52,10 @@ func handleAuth(c *gin.Context, useCase domain.IAuthUsecase) bool {
 			if parsedToken == nil {
 				cerr := cerror.NewAndPrintWithTag("AUM01", errors.New("parsed token is nil"), global.FRIENDLY_MESSAGE)
 				resp := AuthResponse{
-					ErrorType: "internal_server_error",
+					ErrorType: "token_invalid",
 					Message:   cerr.FriendlyMessageWithTag(),
 				}
-				c.JSON(http.StatusInternalServerError, resp)
+				c.JSON(http.StatusUnauthorized, resp)
 				return false
 			}
 

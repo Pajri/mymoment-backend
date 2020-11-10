@@ -336,13 +336,16 @@ func (uc AuthUsecase) createTokenPair(account domain.Account) (*helper.JWTWrappe
 	refreshTokenClaims := jwt.MapClaims{}
 	refreshTokenClaims["account_id"] = account.AccountID
 	refreshTokenClaims["refresh_uuid"] = uuid.New().String()
-	refreshTokenClaims["exp"] = time.Now().Add(1 * time.Hour).Unix()
+
+	rtExp := time.Now().Add(1 * time.Hour)
+	refreshTokenClaims["exp"] = rtExp.Unix()
 
 	jwtHelper := helper.JWTHelper{}
 	token, err := jwtHelper.CreateTokenPair(accessTokenClaims, refreshTokenClaims)
 	if err != nil {
 		return nil, err
 	}
+	token.RefreshTokenExpTime = rtExp
 
 	err = helper.RedisHelper.Set(accessTokenClaims["access_uuid"].(string), token.AccessToken, accessTokenClaims["exp"].(int64))
 	if err != nil {

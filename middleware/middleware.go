@@ -11,6 +11,7 @@ var excludedFromAuth = []string{
 	"/api/auth/verify_email",
 	"/api/auth/reset_password/",
 	"/api/auth/change_password",
+	"/api/auth/refresh_token",
 }
 
 func Middleware(authUseCase domain.IAuthUsecase) gin.HandlerFunc {

@@ -2,6 +2,7 @@ package helper
 
 import (
 	"os"
+	"time"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/pajri/personal-backend/adapter/cerror"
@@ -9,8 +10,9 @@ import (
 )
 
 type JWTWrapper struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
+	AccessToken         string    `json:"access_token"`
+	RefreshToken        string    `json:"refresh_token"`
+	RefreshTokenExpTime time.Time `json:"-"`
 }
 
 type JWTHelper struct {

@@ -5,13 +5,14 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/pajri/personal-backend/config"
 )
 
 type CookieHelper struct{}
 
-func (ch CookieHelper) SetHttpOnlyCookie(name, value string) *http.Cookie {
+func (ch CookieHelper) SetHttpOnlyCookie(name, value string, expire time.Time) *http.Cookie {
 	var host string
 
 	//extract host
@@ -33,6 +34,7 @@ func (ch CookieHelper) SetHttpOnlyCookie(name, value string) *http.Cookie {
 	cookie.HttpOnly = true
 	cookie.Domain = host
 	cookie.Path = "/"
+	cookie.Expires = expire
 
 	return cookie
 }

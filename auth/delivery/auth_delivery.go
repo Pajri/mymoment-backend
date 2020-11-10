@@ -147,7 +147,7 @@ func (ah AuthHandler) Login(c *gin.Context) {
 	response.AccessToken = token.AccessToken
 
 	cookieHelper := helper.CookieHelper{}
-	cookie := cookieHelper.SetHttpOnlyCookie("refresh_token", token.RefreshToken)
+	cookie := cookieHelper.SetHttpOnlyCookie("refresh_token", token.RefreshToken, token.RefreshTokenExpTime)
 	http.SetCookie(c.Writer, cookie)
 
 	c.JSON(http.StatusOK, response)
@@ -229,14 +229,18 @@ func (ah AuthHandler) RefreshToken(c *gin.Context) {
 	rtCookie, err := c.Request.Cookie("refresh_token")
 	if err != nil {
 		var cerr cerror.Error
+		var status int
 		if err == http.ErrNoCookie {
+			status = http.StatusUnauthorized
 			cerr = cerror.NewAndPrintWithTag("RTH00", err, err.Error())
 		} else {
+			status = http.StatusBadRequest
 			cerr = cerror.NewAndPrintWithTag("RTH01", err, global.FRIENDLY_MESSAGE)
 		}
 
 		response.Message = cerr.FriendlyMessageWithTag()
-		c.JSON(http.StatusBadRequest, response)
+		response.ErrorType = "token_invalid"
+		c.JSON(status, response)
 		return
 	}
 
@@ -249,6 +253,8 @@ func (ah AuthHandler) RefreshToken(c *gin.Context) {
 			if cerr.Type == cerror.TYPE_EXPIRED {
 				//response refresh token expired
 				response.ErrorType = "token_expired"
+			} else {
+				response.ErrorType = "token_invalid"
 			}
 			response.Message = cerr.FriendlyMessageWithTag()
 			c.JSON(http.StatusUnauthorized, response)
@@ -266,7 +272,7 @@ func (ah AuthHandler) RefreshToken(c *gin.Context) {
 
 	//set new refresh token to cookie
 	cookieHelper := helper.CookieHelper{}
-	cookie := cookieHelper.SetHttpOnlyCookie("refresh_token", token.RefreshToken)
+	cookie := cookieHelper.SetHttpOnlyCookie("refresh_token", token.RefreshToken, token.RefreshTokenExpTime)
 
 	http.SetCookie(c.Writer, cookie)
 
