@@ -76,6 +76,15 @@ func (ur MySqlPostRepository) PostList(filter domain.PostFilter) ([]domain.Post,
 		query = query.Where(sq.Eq{"account_id": filter.AccountID})
 	}
 
+	if filter.Limit != 0 {
+		query = query.Limit(filter.Limit)
+	}
+
+	var zeroTime time.Time
+	if filter.Date != zeroTime {
+		query = query.Where(sq.Gt{"date": filter.Date})
+	}
+
 	sql, args, err := query.ToSql()
 	if err != nil {
 		return nil, cerror.NewAndPrintWithTag("PLI00", err, global.FRIENDLY_MESSAGE)

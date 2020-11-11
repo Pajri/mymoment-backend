@@ -23,9 +23,11 @@ type IPostRepository interface {
 type IPostUsecase interface {
 	InsertPost(post Post) (*Post, error)
 	DeletePost(postID, accountID string) error
-	PostListing(accountId string) ([]Post, error)
+	PostListing(accountId string, limit uint64, date time.Time) ([]Post, error)
 }
 
 type PostFilter struct {
 	AccountID string
+	Date      time.Time
+	Limit     uint64
 }

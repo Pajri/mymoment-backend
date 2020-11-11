@@ -27,10 +27,13 @@ func (uc PostUsecase) InsertPost(post domain.Post) (*domain.Post, error) {
 	return &post, nil
 }
 
-func (uc PostUsecase) PostListing(accountID string) ([]domain.Post, error) {
+func (uc PostUsecase) PostListing(accountID string, limit uint64, date time.Time) ([]domain.Post, error) {
 	var postList []domain.Post
 
-	filter := domain.PostFilter{AccountID: accountID}
+	var filter domain.PostFilter
+	filter.AccountID = accountID
+	filter.Limit = limit
+	filter.Date = date
 	postList, err := uc.postRepo.PostList(filter)
 	return postList, err
 }

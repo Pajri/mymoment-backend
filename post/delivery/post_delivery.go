@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator"
@@ -31,6 +32,11 @@ type DeletePostRequest struct {
 
 type DeletePostResponse struct {
 	Message []string `json:"message"`
+}
+
+type PostListingRequest struct {
+	Date  time.Time `form:"date"`
+	Limit uint64    `form:"limit"`
 }
 
 type PostListingResponse struct {
@@ -120,10 +126,12 @@ func (ph PostHandler) InsertPost(c *gin.Context) {
 
 func (ph PostHandler) PostListing(c *gin.Context) {
 	var (
+		request   PostListingRequest
 		response  PostListingResponse
 		accountID string = c.GetString("account_id")
 	)
 
+	//validate account id
 	if accountID == "" {
 		fmt.Println("account id is empty")
 		cerr := cerror.NewAndPrintWithTag("PLD00", errors.New("Account id is empty"), global.FRIENDLY_MESSAGE)
@@ -132,7 +140,16 @@ func (ph PostHandler) PostListing(c *gin.Context) {
 		return
 	}
 
-	postList, err := ph.useCase.PostListing(accountID)
+	//get request param
+	err := c.ShouldBind(&request)
+	if err != nil {
+		cerr := cerror.NewAndPrintWithTag("PLD01", err, global.FRIENDLY_INVALID_PARAM)
+		response.Message = cerr.FriendlyMessageWithTag()
+		c.JSON(http.StatusBadRequest, response)
+		return
+	}
+
+	postList, err := ph.useCase.PostListing(accountID, request.Limit, request.Date)
 	if err != nil {
 		response.Message = err.(cerror.Error).FriendlyMessageWithTag()
 		c.JSON(http.StatusInternalServerError, response)
@@ -145,7 +162,7 @@ func (ph PostHandler) PostListing(c *gin.Context) {
 		new.PostID = post.PostID
 		new.Content = post.Content
 		new.ImageURL = post.ImageURL
-		new.Date = post.Date.Format("02 January 2006 15:04")
+		new.Date = post.Date.Format(global.TIME_FORMAT)
 
 		postListElements = append(postListElements, new)
 	}
