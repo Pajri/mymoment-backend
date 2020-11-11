@@ -32,6 +32,18 @@ type DeletePostResponse struct {
 	Message []string `json:"message"`
 }
 
+type PostListingResponse struct {
+	Message  string               `json:"message"`
+	PostList []PostListingElement `json:"post_list"`
+}
+
+type PostListingElement struct {
+	PostID   string `json:"post_id"`
+	Content  string `json:"content"`
+	ImageURL string `json:"image_url"`
+	Date     string `json:"date"`
+}
+
 /* #endregion */
 
 type PostHandler struct {
@@ -44,8 +56,8 @@ func NewPostHandler(router *gin.Engine, postUsecase domain.IPostUsecase) {
 	}
 
 	router.POST("/api/post", handler.InsertPost)
+	router.GET("/api/post", handler.PostListing)
 	router.POST("/api/post/delete", handler.DeletePost)
-
 }
 
 func (ph PostHandler) InsertPost(c *gin.Context) {
@@ -102,6 +114,43 @@ func (ph PostHandler) InsertPost(c *gin.Context) {
 
 	response = InsertPostResponse{nil, *storedPost}
 	c.JSON(http.StatusCreated, response)
+	return
+}
+
+func (ph PostHandler) PostListing(c *gin.Context) {
+	var (
+		response  PostListingResponse
+		accountID string = c.GetString("account_id")
+	)
+
+	if accountID == "" {
+		fmt.Println("account id is empty")
+		cerr := cerr.New("PLD00", errors.NewAndPrintWithTag("Account id is empty"), global.FRIENDLY_MESSAGE)
+		response.Message = cerr.FriendlyMessageWithTag()
+		c.JSON(http.StatusBadRequest,response)
+		return
+	}
+
+	postList, err := ph.useCase.PostListing(accountID)
+	if err != nil {
+		response.Message = err.(cerror.Error).FriendlyMessageWithTag()
+		c.JSON(http.StatusInternalServerError, response)
+		return
+	}
+
+	var postListElements []PostListingElement
+	for _, post := range postList {
+		var new PostListingElement
+		new.PostID = post.PostID
+		new.Content = post.Content
+		new.ImageURL = post.ImageURL
+		new.Date = post.Date.Format("02 January 2006 15:04")
+
+		postListElements = append(postListElements, new)
+	}
+	response.PostList = postListElements
+
+	c.JSON(http.StatusOK, response)
 	return
 }
 

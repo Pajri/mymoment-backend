@@ -2,6 +2,7 @@ package mysql
 
 import (
 	"database/sql"
+	"log"
 	"time"
 
 	sq "github.com/Masterminds/squirrel"
@@ -23,10 +24,13 @@ type MySqlPostRepository struct {
 }
 
 func (ur MySqlPostRepository) InsertPost(post domain.Post) error {
+	if post.PostID == "" {
+		post.PostID = util.GenerateUUID()
+	}
 	/*start create query*/
 	query := sq.Insert("post").
 		Columns("post_id", "content", "image_url", "date", "last_updated", "account_id").
-		Values(util.GenerateUUID(), post.Content, post.ImageURL, post.Date, time.Now(), post.AccountID)
+		Values(post.PostID, post.Content, post.ImageURL, post.Date, time.Now(), post.AccountID)
 
 	sql, args, err := query.ToSql()
 	if err != nil {
@@ -61,6 +65,48 @@ func (ur MySqlPostRepository) InsertPost(post domain.Post) error {
 
 	return nil
 	/*end insert execution*/
+}
+
+func (ur MySqlPostRepository) PostList(filter domain.PostFilter) ([]domain.Post, error) {
+	query := sq.Select("post_id, content, image_url, date").
+		From("post").
+		OrderBy("date DESC")
+
+	if filter.AccountID != "" {
+		query = query.Where(sq.Eq{"account_id": filter.AccountID})
+	}
+
+	sql, args, err := query.ToSql()
+	if err != nil {
+		return nil, cerror.NewAndPrintWithTag("PLI00", err, global.FRIENDLY_MESSAGE)
+	}
+
+	rows, err := ur.Db.Query(sql, args...)
+	if rows != nil {
+		defer rows.Close()
+	}
+
+	if err != nil {
+		return nil, cerror.NewAndPrintWithTag("PLI01", err, global.FRIENDLY_MESSAGE)
+	}
+
+	var postList []domain.Post
+	for rows.Next() {
+		var post domain.Post
+		err = rows.Scan(&post.PostID, &post.Content, &post.ImageURL, &post.Date)
+		if err != nil {
+			return nil, cerror.NewAndPrintWithTag("PLI02", err, global.FRIENDLY_MESSAGE)
+		}
+
+		postList = append(postList, post)
+	}
+
+	if err = rows.Close(); err != nil {
+		// but what should we do if there's an error?
+		log.Println(err)
+	}
+
+	return postList, nil
 }
 
 func (ur MySqlPostRepository) DeletePost(postID, accountID string) error {

@@ -69,6 +69,7 @@ func main() {
 		AllowMethods:     []string{"GET", "POST"},
 		AllowCredentials: true,
 	}))
+	r.Static("/upload/images/", "./upload/images")
 
 	//setup helper
 	mailHelper := helper.NewEmailHelper()

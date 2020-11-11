@@ -27,6 +27,14 @@ func (uc PostUsecase) InsertPost(post domain.Post) (*domain.Post, error) {
 	return &post, nil
 }
 
+func (uc PostUsecase) PostListing(accountID string) ([]domain.Post, error) {
+	var postList []domain.Post
+
+	filter := domain.PostFilter{AccountID: accountID}
+	postList, err := uc.postRepo.PostList(filter)
+	return postList, err
+}
+
 func (uc PostUsecase) DeletePost(postID, accountID string) error {
 	err := uc.postRepo.DeletePost(postID, accountID)
 	return err

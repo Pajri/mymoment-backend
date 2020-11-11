@@ -17,9 +17,15 @@ type Post struct {
 type IPostRepository interface {
 	InsertPost(post Post) error
 	DeletePost(postID, accountID string) error
+	PostList(filter PostFilter) ([]Post, error)
 }
 
 type IPostUsecase interface {
 	InsertPost(post Post) (*Post, error)
 	DeletePost(postID, accountID string) error
+	PostListing(accountId string) ([]Post, error)
+}
+
+type PostFilter struct {
+	AccountID string
 }
