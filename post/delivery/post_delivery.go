@@ -1,6 +1,7 @@
 package delivery
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"reflect"
@@ -125,9 +126,9 @@ func (ph PostHandler) PostListing(c *gin.Context) {
 
 	if accountID == "" {
 		fmt.Println("account id is empty")
-		cerr := cerr.New("PLD00", errors.NewAndPrintWithTag("Account id is empty"), global.FRIENDLY_MESSAGE)
+		cerr := cerror.NewAndPrintWithTag("PLD00", errors.New("Account id is empty"), global.FRIENDLY_MESSAGE)
 		response.Message = cerr.FriendlyMessageWithTag()
-		c.JSON(http.StatusBadRequest,response)
+		c.JSON(http.StatusBadRequest, response)
 		return
 	}
 
