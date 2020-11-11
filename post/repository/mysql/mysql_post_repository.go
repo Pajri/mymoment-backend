@@ -82,7 +82,7 @@ func (ur MySqlPostRepository) PostList(filter domain.PostFilter) ([]domain.Post,
 
 	var zeroTime time.Time
 	if filter.Date != zeroTime {
-		query = query.Where(sq.Gt{"date": filter.Date})
+		query = query.Where(sq.Lt{"date": filter.Date})
 	}
 
 	sql, args, err := query.ToSql()

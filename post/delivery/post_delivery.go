@@ -45,10 +45,11 @@ type PostListingResponse struct {
 }
 
 type PostListingElement struct {
-	PostID   string `json:"post_id"`
-	Content  string `json:"content"`
-	ImageURL string `json:"image_url"`
-	Date     string `json:"date"`
+	PostID     string `json:"post_id"`
+	Content    string `json:"content"`
+	ImageURL   string `json:"image_url"`
+	Date       string `json:"date"`
+	HiddenDate string `json:"hidden_date"`
 }
 
 /* #endregion */
@@ -163,6 +164,7 @@ func (ph PostHandler) PostListing(c *gin.Context) {
 		new.Content = post.Content
 		new.ImageURL = post.ImageURL
 		new.Date = post.Date.Format(global.TIME_FORMAT)
+		new.HiddenDate = post.Date.Format(global.TIME_ISO8601)
 
 		postListElements = append(postListElements, new)
 	}
