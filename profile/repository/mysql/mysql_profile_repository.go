@@ -59,3 +59,26 @@ func (pr MySqlProfileRepository) InsertProfile(profile domain.Profile) error {
 
 	return nil
 }
+
+func (pr MySqlProfileRepository) GetProfile(filter domain.Profile) (*domain.Profile, error) {
+	query := sq.Select("full_name").
+		From("profile")
+
+	if filter.AccountID != "" {
+		query = query.Where(sq.Eq{"account_id": filter.AccountID})
+	}
+
+	sqlString, args, err := query.ToSql()
+	if err != nil {
+		return nil, cerror.NewAndPrintWithTag("GPM00", err, global.FRIENDLY_MESSAGE)
+	}
+
+	row := pr.Db.QueryRow(sqlString, args...)
+	profile := new(domain.Profile)
+	err = row.Scan(&profile.FullName)
+	if err != nil {
+		return nil, cerror.NewAndPrintWithTag("GPM01", err, global.FRIENDLY_MESSAGE)
+	}
+
+	return profile, nil
+}

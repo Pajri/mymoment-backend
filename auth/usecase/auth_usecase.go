@@ -60,7 +60,13 @@ func (uc AuthUsecase) Login(account domain.Account) (*helper.JWTWrapper, error) 
 			return nil, cerr
 		}
 
-		token, err := uc.createTokenPair(*regAccount)
+		filterProfile := domain.Profile{AccountID: regAccount.AccountID}
+		regProfile, err := uc.profileRepo.GetProfile(filterProfile)
+		if err != nil {
+			return nil, err
+		}
+
+		token, err := uc.createTokenPair(*regAccount, *regProfile)
 		if err != nil {
 			return nil, err
 		}
@@ -151,8 +157,14 @@ func (uc AuthUsecase) RefreshToken(refreshToken string) (*helper.JWTWrapper, err
 		return nil, err
 	}
 
+	filterProfile := domain.Profile{AccountID: accountID}
+	profile, err := uc.profileRepo.GetProfile(filterProfile)
+	if err != nil {
+		return nil, err
+	}
+
 	//create token
-	tokenPair, err := uc.createTokenPair(*account)
+	tokenPair, err := uc.createTokenPair(*account, *profile)
 	if err != nil {
 		return nil, err
 	}
@@ -325,13 +337,14 @@ func (uc AuthUsecase) generateResetPasswordUrl(token string) string {
 	return url
 }
 
-func (uc AuthUsecase) createTokenPair(account domain.Account) (*helper.JWTWrapper, error) {
+func (uc AuthUsecase) createTokenPair(account domain.Account, profile domain.Profile) (*helper.JWTWrapper, error) {
 	accessTokenClaims := jwt.MapClaims{}
 	accessTokenClaims["authorized"] = true
 	accessTokenClaims["account_id"] = account.AccountID
 	accessTokenClaims["access_uuid"] = uuid.New().String()
 	accessTokenClaims["email"] = account.Email
 	accessTokenClaims["exp"] = time.Now().Add(15 * time.Minute).Unix()
+	accessTokenClaims["full_name"] = profile.FullName
 
 	refreshTokenClaims := jwt.MapClaims{}
 	refreshTokenClaims["account_id"] = account.AccountID

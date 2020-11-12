@@ -9,4 +9,10 @@ type Profile struct {
 
 type IProfileRepository interface {
 	InsertProfile(profile Profile) error
+	GetProfile(filter Profile) (*Profile, error)
+}
+
+type ProfileFilter struct {
+	ProfileID string
+	AccountID string
 }
