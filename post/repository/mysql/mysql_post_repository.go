@@ -156,5 +156,5 @@ func (ur MySqlPostRepository) DeletePost(postID, accountID string) error {
 		return cerror.NewAndPrintWithTag("DP04", err, global.FRIENDLY_MESSAGE)
 	}
 
-	return tx.Commit()
+	return nil
 }
