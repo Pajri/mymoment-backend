@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/validator"
+	"github.com/microcosm-cc/bluemonday"
 	"github.com/pajri/personal-backend/adapter/cerror"
 	"github.com/pajri/personal-backend/domain"
 	"github.com/pajri/personal-backend/global"
@@ -128,6 +129,9 @@ func (ah AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
+	p := bluemonday.UGCPolicy()
+	request.Email = p.Sanitize(request.Email)
+
 	//populate
 	var account domain.Account
 	account.Email = request.Email
@@ -207,6 +211,10 @@ func (ah AuthHandler) SignUp(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, response)
 		return
 	}
+
+	p := bluemonday.UGCPolicy()
+	request.Fullname = p.Sanitize(request.Fullname)
+	request.Email = p.Sanitize(request.Email)
 
 	//populate request based on domain
 	var account domain.Account
@@ -357,6 +365,9 @@ func (ah AuthHandler) ResetPassword(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, response)
 		return
 	}
+
+	p := bluemonday.UGCPolicy()
+	request.Email = p.Sanitize(request.Email)
 
 	err = ah.useCase.ResetPassword(request.Email)
 	if err != nil {
