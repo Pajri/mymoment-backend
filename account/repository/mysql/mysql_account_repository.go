@@ -22,7 +22,7 @@ type MySqlUserRepository struct {
 }
 
 func (ur MySqlUserRepository) GetAccount(filter domain.AccountFilter) (*domain.Account, error) {
-	query := sq.Select("account_id, password, email, salt, email_token, is_verified").
+	query := sq.Select("account_id, password, email, salt, email_token, is_verified, password_token").
 		From("account")
 
 	if filter.Email != "" {
@@ -48,6 +48,7 @@ func (ur MySqlUserRepository) GetAccount(filter domain.AccountFilter) (*domain.A
 		&account.Salt,
 		&account.EmailToken,
 		&account.IsVerified,
+		&account.PasswordToken,
 	)
 	if err != nil {
 		return nil, cerror.NewAndPrintWithTag("GA02", err, global.FRIENDLY_MESSAGE)
@@ -68,7 +69,8 @@ func (ur MySqlUserRepository) InsertAccount(account domain.Account) (*domain.Acc
 			password, 
 			salt, 
 			email_token, 
-			is_verified`).
+			is_verified,
+			password_token`).
 		Values(
 			account.AccountID,
 			account.Email,
@@ -76,6 +78,7 @@ func (ur MySqlUserRepository) InsertAccount(account domain.Account) (*domain.Acc
 			account.Salt,
 			account.EmailToken,
 			account.IsVerified,
+			account.PasswordToken,
 		)
 
 	sql, args, err := query.ToSql()
@@ -184,6 +187,41 @@ func (ur MySqlUserRepository) UpdateSaltAndPassword(account domain.Account) erro
 	err = tx.Commit()
 	if err != nil {
 		return cerror.NewAndPrintWithTag("USP04", err, global.FRIENDLY_MESSAGE)
+	}
+	return nil
+}
+
+func (ur MySqlUserRepository) UpdatePasswordToken(account domain.Account) error {
+	query := sq.Update("account").
+		Set("password_token", account.PasswordToken).
+		Where(sq.Eq{"account_id": account.AccountID})
+
+	sqlString, args, err := query.ToSql()
+	if err != nil {
+		return cerror.NewAndPrintWithTag("UPT00", err, global.FRIENDLY_MESSAGE)
+	}
+
+	tx, err := ur.Db.Begin()
+	if err != nil {
+		return cerror.NewAndPrintWithTag("UPT01", err, global.FRIENDLY_MESSAGE)
+	}
+
+	stmt, err := tx.Prepare(sqlString)
+	if err != nil {
+		tx.Rollback()
+		return cerror.NewAndPrintWithTag("UPT02", err, global.FRIENDLY_MESSAGE)
+	}
+	defer stmt.Close()
+
+	_, err = tx.Exec(sqlString, args...)
+	if err != nil {
+		tx.Rollback()
+		return cerror.NewAndPrintWithTag("UPT03", err, global.FRIENDLY_MESSAGE)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return cerror.NewAndPrintWithTag("UPT04", err, global.FRIENDLY_MESSAGE)
 	}
 	return nil
 }

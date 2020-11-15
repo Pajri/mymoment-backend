@@ -1,12 +1,13 @@
 package domain
 
 type Account struct {
-	AccountID  string `json:"-"`
-	Password   string `json:"-"`
-	Email      string `json:"email"`
-	Salt       []byte `json:"-"`
-	EmailToken string `json:"-"`
-	IsVerified bool   `json:"-"`
+	AccountID     string `json:"-"`
+	Password      string `json:"-"`
+	Email         string `json:"email"`
+	Salt          []byte `json:"-"`
+	EmailToken    string `json:"-"`
+	IsVerified    bool   `json:"-"`
+	PasswordToken string
 }
 
 type IAccountRepository interface {
@@ -14,6 +15,7 @@ type IAccountRepository interface {
 	InsertAccount(account Account) (*Account, error)
 	UpdateIsVerified(accountID string, isVerified bool) error
 	UpdateSaltAndPassword(account Account) error
+	UpdatePasswordToken(account Account) error
 }
 
 type AccountFilter struct {

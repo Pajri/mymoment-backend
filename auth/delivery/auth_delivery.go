@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"reflect"
 
+	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/validator"
@@ -66,6 +67,11 @@ type ChangePasswordResponse struct {
 	Message []string `json:"message"`
 }
 
+type SignOutResponse struct {
+	ErrprType string `json:"error_type"`
+	Message   string `json:"message"`
+}
+
 // #endregion
 
 type AuthHandler struct {
@@ -83,6 +89,7 @@ func NewAuthHandler(router *gin.Engine, authUsecase domain.IAuthUsecase) {
 	router.GET("/api/auth/verify_email", handler.VerifyEmail)
 	router.POST("/api/auth/reset_password/", handler.ResetPassword)
 	router.POST("/api/auth/change_password", handler.ChangePassword)
+	router.POST("/api/auth/signout", handler.SignOut)
 }
 
 func (ah AuthHandler) Login(c *gin.Context) {
@@ -433,5 +440,58 @@ func (ah AuthHandler) ChangePassword(c *gin.Context) {
 
 	response.Message = []string{global.FRIENDLY_TOKEN_REQUIRED}
 	c.JSON(http.StatusBadRequest, response)
+	return
+}
+
+func (ah AuthHandler) SignOut(c *gin.Context) {
+	var (
+		response                  SignOutResponse
+		jwtHelper                 helper.JWTHelper
+		accessToken, refreshToken *jwt.Token
+		err                       error
+	)
+	//remove access token
+	authArr := c.Request.Header["Authorization"]
+	if len(authArr) > 0 {
+		accessTokenString := authArr[0] //get access token from header
+
+		accessToken, err = jwtHelper.ParseToken(accessTokenString) //parse token component into struct
+		if err != nil {
+			cerr := cerror.NewAndPrintWithTag("SOA00", err, global.FRIENDLY_INVALID_TOKEN)
+			response.Message = cerr.FriendlyMessageWithTag()
+			c.JSON(http.StatusBadRequest, response)
+			return
+		}
+	}
+
+	//get refresh token
+	rtCookie, err := c.Request.Cookie("refresh_token")
+	if err != nil {
+		cerr := cerror.NewAndPrintWithTag("SOA01", err, global.FRIENDLY_INVALID_TOKEN)
+		response.Message = cerr.FriendlyMessageWithTag()
+		c.JSON(http.StatusBadRequest, response)
+		return
+	}
+	fmt.Println(rtCookie.Value)
+	refreshToken, err = jwtHelper.ParseToken(rtCookie.Value) //parse token component into struct
+	if err != nil {
+		cerr := cerror.NewAndPrintWithTag("SOA02", err, global.FRIENDLY_INVALID_TOKEN)
+		response.Message = cerr.FriendlyMessageWithTag()
+		c.JSON(http.StatusBadRequest, response)
+		return
+	}
+
+	err = ah.useCase.SignOut(accessToken, refreshToken)
+	if err != nil {
+		cerr := err.(cerror.Error)
+		response.Message = cerr.FriendlyMessageWithTag()
+		c.JSON(http.StatusInternalServerError, response)
+		return
+	}
+
+	cookieHelper := helper.CookieHelper{}
+	cookie := cookieHelper.RemoveHttpOnlyCookie("refresh_token")
+	http.SetCookie(c.Writer, cookie)
+	c.JSON(http.StatusOK, response)
 	return
 }

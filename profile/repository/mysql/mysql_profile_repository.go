@@ -60,8 +60,8 @@ func (pr MySqlProfileRepository) InsertProfile(profile domain.Profile) error {
 	return nil
 }
 
-func (pr MySqlProfileRepository) GetProfile(filter domain.Profile) (*domain.Profile, error) {
-	query := sq.Select("full_name").
+func (pr MySqlProfileRepository) GetProfile(filter domain.ProfileFilter) (*domain.Profile, error) {
+	query := sq.Select("profile_id, full_name").
 		From("profile")
 
 	if filter.AccountID != "" {
@@ -75,10 +75,45 @@ func (pr MySqlProfileRepository) GetProfile(filter domain.Profile) (*domain.Prof
 
 	row := pr.Db.QueryRow(sqlString, args...)
 	profile := new(domain.Profile)
-	err = row.Scan(&profile.FullName)
+	err = row.Scan(&profile.ProfileID, &profile.FullName)
 	if err != nil {
 		return nil, cerror.NewAndPrintWithTag("GPM01", err, global.FRIENDLY_MESSAGE)
 	}
 
 	return profile, nil
+}
+
+func (pr MySqlProfileRepository) UpdateFullName(profile domain.Profile) error {
+	query := sq.Update("profile").
+		Set("full_name", profile.FullName).
+		Where(sq.Eq{"account_id": profile.AccountID})
+
+	sqlString, args, err := query.ToSql()
+	if err != nil {
+		return cerror.NewAndPrintWithTag("UFP00", err, global.FRIENDLY_MESSAGE)
+	}
+
+	tx, err := pr.Db.Begin()
+	if err != nil {
+		return cerror.NewAndPrintWithTag("UFP01", err, global.FRIENDLY_MESSAGE)
+	}
+
+	stmt, err := tx.Prepare(sqlString)
+	if err != nil {
+		tx.Rollback()
+		return cerror.NewAndPrintWithTag("UFP02", err, global.FRIENDLY_MESSAGE)
+	}
+	defer stmt.Close()
+
+	_, err = tx.Exec(sqlString, args...)
+	if err != nil {
+		tx.Rollback()
+		return cerror.NewAndPrintWithTag("UFP03", err, global.FRIENDLY_MESSAGE)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return cerror.NewAndPrintWithTag("UFP04", err, global.FRIENDLY_MESSAGE)
+	}
+	return nil
 }

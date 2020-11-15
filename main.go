@@ -19,7 +19,10 @@ import (
 	_accountRepository "github.com/pajri/personal-backend/account/repository/mysql"
 	_authDelivery "github.com/pajri/personal-backend/auth/delivery"
 	_authUsecase "github.com/pajri/personal-backend/auth/usecase"
+
+	_profileDelivery "github.com/pajri/personal-backend/profile/delivery"
 	_profileRepository "github.com/pajri/personal-backend/profile/repository/mysql"
+	_profileUsecase "github.com/pajri/personal-backend/profile/usecase"
 
 	_imageDelivery "github.com/pajri/personal-backend/image/delivery"
 	_imageRepository "github.com/pajri/personal-backend/image/repository/mysql"
@@ -78,9 +81,10 @@ func main() {
 	postRepo := _postRepository.NewMySqlPostRepository(dbConn)
 	postUsecase := _postUsecase.NewPostUseCase(postRepo)
 
-	profileRepo := _profileRepository.NewMySqlProfileRepository(dbConn)
-
 	accountRepo := _accountRepository.NewMySqlAccountRepository(dbConn)
+
+	profileRepo := _profileRepository.NewMySqlProfileRepository(dbConn)
+	profileUsecase := _profileUsecase.NewProfileUsecase(accountRepo, profileRepo)
 
 	authUsecase := _authUsecase.NewAuthUsecase(accountRepo, profileRepo, mailHelper)
 
@@ -91,6 +95,7 @@ func main() {
 	_postDelivery.NewPostHandler(r, postUsecase)
 	_authDelivery.NewAuthHandler(r, authUsecase)
 	_imageDelivery.NewImageHandler(r, imageUsecase)
+	_profileDelivery.NewProfileHandler(r, profileUsecase)
 
 	r.Run(":5000")
 

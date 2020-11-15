@@ -60,7 +60,7 @@ func (uc AuthUsecase) Login(account domain.Account) (*helper.JWTWrapper, error) 
 			return nil, cerr
 		}
 
-		filterProfile := domain.Profile{AccountID: regAccount.AccountID}
+		filterProfile := domain.ProfileFilter{AccountID: regAccount.AccountID}
 		regProfile, err := uc.profileRepo.GetProfile(filterProfile)
 		if err != nil {
 			return nil, err
@@ -157,7 +157,7 @@ func (uc AuthUsecase) RefreshToken(refreshToken string) (*helper.JWTWrapper, err
 		return nil, err
 	}
 
-	filterProfile := domain.Profile{AccountID: accountID}
+	filterProfile := domain.ProfileFilter{AccountID: accountID}
 	profile, err := uc.profileRepo.GetProfile(filterProfile)
 	if err != nil {
 		return nil, err
@@ -226,6 +226,14 @@ func (uc AuthUsecase) ResetPassword(email string) error {
 			return cerr
 		}
 
+		var updateTokenInput domain.Account
+		updateTokenInput.AccountID = account.AccountID
+		updateTokenInput.PasswordToken = token
+		err := uc.accountRepo.UpdatePasswordToken(updateTokenInput)
+		if err != nil {
+			return err
+		}
+
 		url := uc.generateResetPasswordUrl(token)
 
 		msg := fmt.Sprintf(global.RESET_PASSWORD_TEMPLATE, url)
@@ -274,6 +282,12 @@ func (uc AuthUsecase) ChangePassword(token, password string) error {
 		return cerr
 	}
 
+	if token != account.PasswordToken {
+		errMsg := fmt.Sprintf("token is different from token from database. email : %s", account.Email)
+		cerr := cerror.NewAndPrintWithTag("CPW03", errors.New(errMsg), global.FRIENDLY_INVALID_TOKEN)
+		return cerr
+	}
+
 	account.Salt, err = uc.generateSalt()
 	if err != nil {
 		return err
@@ -287,6 +301,32 @@ func (uc AuthUsecase) ChangePassword(token, password string) error {
 	err = uc.accountRepo.UpdateSaltAndPassword(*account)
 	if err != nil {
 		return err
+	}
+
+	var updateTokenInput domain.Account
+	updateTokenInput.AccountID = account.AccountID
+	updateTokenInput.PasswordToken = ""
+	err = uc.accountRepo.UpdatePasswordToken(updateTokenInput)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (uc AuthUsecase) SignOut(accessToken, refreshToken *jwt.Token) error {
+	atClaims := accessToken.Claims.(jwt.MapClaims)
+	atUUID := atClaims["access_uuid"].(string)
+	err := helper.RedisHelper.Delete(atUUID)
+	if err != nil {
+		return cerror.NewAndPrintWithTag("SOU00", err, global.FRIENDLY_MESSAGE)
+	}
+
+	rtClaims := refreshToken.Claims.(jwt.MapClaims)
+	rtUUID := rtClaims["refresh_uuid"].(string)
+	err = helper.RedisHelper.Delete(rtUUID)
+	if err != nil {
+		return cerror.NewAndPrintWithTag("SOU01", err, global.FRIENDLY_MESSAGE)
 	}
 
 	return nil
@@ -333,7 +373,7 @@ func (uc AuthUsecase) generateEmailConfirmationUrl(account domain.Account) strin
 }
 
 func (uc AuthUsecase) generateResetPasswordUrl(token string) string {
-	url := fmt.Sprintf("%s/api/auth/change_password?token=%s", config.Config.Host, token)
+	url := fmt.Sprintf("%s/change_password?token=%s", config.Config.FEHost, token)
 	return url
 }
 

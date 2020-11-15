@@ -9,7 +9,13 @@ type Profile struct {
 
 type IProfileRepository interface {
 	InsertProfile(profile Profile) error
-	GetProfile(filter Profile) (*Profile, error)
+	GetProfile(filter ProfileFilter) (*Profile, error)
+	UpdateFullName(profile Profile) error
+}
+
+type IProfileUsecase interface {
+	GetProfile(profile Profile) (*Profile, error)
+	UpdateProfile(profile Profile) error
 }
 
 type ProfileFilter struct {

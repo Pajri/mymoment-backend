@@ -43,6 +43,7 @@ func (ih ImageHandler) SaveImage(c *gin.Context) {
 	}
 
 	/*start validate image*/
+	//validate required
 	if imageFile == nil {
 		cerr := cerror.NewAndPrintWithTag("UIP01", err, global.FRIENDLY_IMAGE_REQUIRED)
 		response.Message = cerr.FriendlyMessageWithTag()
@@ -50,6 +51,19 @@ func (ih ImageHandler) SaveImage(c *gin.Context) {
 		return
 	}
 
+	//validate size
+	maxSizeMB := 10
+	if imageFile.Size > int64(maxSizeMB*1024*1024) {
+		msg := fmt.Sprintf(global.ERR_MAX_IMAGE_SIZE_EXCEED_LIMIT, maxSizeMB, imageFile.Size*1024*1024, email)
+		friehdly := fmt.Sprintf(global.FRIENDLY_IMAGE_SIZE_EXCEED_LIMIT, maxSizeMB)
+		cerr := cerror.NewAndPrintWithTag("UIP03", errors.New(msg), friehdly)
+
+		response.Message = cerr.FriendlyMessageWithTag()
+		c.JSON(http.StatusBadRequest, response)
+		return
+	}
+
+	//validate filetype
 	var imageHeader string
 	if len(imageFile.Header["Content-Type"]) > 0 {
 		imageHeader = imageFile.Header["Content-Type"][0]
