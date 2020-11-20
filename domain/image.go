@@ -13,8 +13,13 @@ type Image struct {
 
 type IImageRepository interface {
 	SaveImage(image Image) error
+	DeleteImage(image Image, deleteFile bool) error
 }
 
 type IImageUsecase interface {
 	SaveImage(c *gin.Context, imageFile *multipart.FileHeader, email string) (string, error)
+}
+
+type ImageFilter struct {
+	ImageURL string
 }

@@ -118,6 +118,33 @@ func (ur MySqlPostRepository) PostList(filter domain.PostFilter) ([]domain.Post,
 	return postList, nil
 }
 
+func (ur MySqlPostRepository) GetPost(filter domain.PostFilter) (*domain.Post, error) {
+	query := sq.Select("post_id, content, image_url, date").
+		From("post")
+
+	if filter.PostID != "" {
+		query = query.Where(sq.Eq{"post_id": filter.PostID})
+	}
+
+	sqlString, args, err := query.ToSql()
+	if err != nil {
+		return nil, cerror.NewAndPrintWithTag("GPR00", err, global.FRIENDLY_MESSAGE)
+	}
+
+	row := ur.Db.QueryRow(sqlString, args...)
+	if err != nil {
+		return nil, cerror.NewAndPrintWithTag("GPR01", err, global.FRIENDLY_MESSAGE)
+	}
+
+	post := new(domain.Post)
+	err = row.Scan(&post.PostID, &post.Content, &post.ImageURL, &post.Date)
+	if err != nil {
+		return nil, cerror.NewAndPrintWithTag("GPR02", err, global.FRIENDLY_MESSAGE)
+	}
+
+	return post, nil
+}
+
 func (ur MySqlPostRepository) DeletePost(postID, accountID string) error {
 	/*start create query*/
 	query := sq.Delete("post").

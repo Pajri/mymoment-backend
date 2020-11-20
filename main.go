@@ -34,6 +34,7 @@ func main() {
 	config.InitConfig()
 
 	global.InitEnv()
+	global.InitWD()
 
 	/* start init db*/
 	dbConn, err := db.InitDB()
@@ -78,8 +79,11 @@ func main() {
 	mailHelper := helper.NewEmailHelper()
 
 	//setup repo and usecase
+	imageRepo := _imageRepository.NewMySqlImageRepository(dbConn)
+	imageUsecase := _imageUsecase.NewImageUsecase(imageRepo)
+
 	postRepo := _postRepository.NewMySqlPostRepository(dbConn)
-	postUsecase := _postUsecase.NewPostUseCase(postRepo)
+	postUsecase := _postUsecase.NewPostUseCase(postRepo, imageRepo)
 
 	accountRepo := _accountRepository.NewMySqlAccountRepository(dbConn)
 
@@ -87,9 +91,6 @@ func main() {
 	profileUsecase := _profileUsecase.NewProfileUsecase(accountRepo, profileRepo)
 
 	authUsecase := _authUsecase.NewAuthUsecase(accountRepo, profileRepo, mailHelper)
-
-	imageRepo := _imageRepository.NewMySqlImageRepository(dbConn)
-	imageUsecase := _imageUsecase.NewImageUsecase(imageRepo)
 
 	r.Use(middleware.Middleware(authUsecase))
 	_postDelivery.NewPostHandler(r, postUsecase)

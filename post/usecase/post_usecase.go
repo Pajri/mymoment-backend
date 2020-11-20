@@ -7,13 +7,16 @@ import (
 )
 
 type PostUsecase struct {
-	postRepo    domain.IPostRepository
-	accountRepo domain.IAccountRepository
+	postRepo  domain.IPostRepository
+	imageRepo domain.IImageRepository
 }
 
-func NewPostUseCase(postRepository domain.IPostRepository) *PostUsecase {
+func NewPostUseCase(postRepository domain.IPostRepository,
+	imageRepository domain.IImageRepository) *PostUsecase {
+
 	return &PostUsecase{
-		postRepo: postRepository,
+		postRepo:  postRepository,
+		imageRepo: imageRepository,
 	}
 }
 
@@ -39,6 +42,25 @@ func (uc PostUsecase) PostListing(accountID string, limit uint64, date time.Time
 }
 
 func (uc PostUsecase) DeletePost(postID, accountID string) error {
-	err := uc.postRepo.DeletePost(postID, accountID)
-	return err
+	//get post data
+	postFilter := domain.PostFilter{PostID: postID}
+	post, err := uc.postRepo.GetPost(postFilter)
+	if err != nil {
+		return err
+	}
+
+	err = uc.postRepo.DeletePost(postID, accountID)
+	if err != nil {
+		return err
+	}
+
+	if post.ImageURL != "" {
+		image := domain.Image{ImageURL: post.ImageURL}
+		err = uc.imageRepo.DeleteImage(image, true)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

@@ -2,6 +2,8 @@ package mysql
 
 import (
 	"database/sql"
+	"os"
+	"strings"
 
 	sq "github.com/Masterminds/squirrel"
 	"github.com/google/uuid"
@@ -62,4 +64,71 @@ func (im MySqlImageRepository) SaveImage(image domain.Image) error {
 
 	return nil
 	/*end insert data*/
+}
+
+func (im MySqlImageRepository) DeleteImage(image domain.Image, deleteFile bool) error {
+	filter := domain.ImageFilter{ImageURL: image.ImageURL}
+	tx, err := im.deleteFromDb(filter)
+	if err != nil {
+		return err
+	}
+
+	if deleteFile {
+		err = im.deleteFile(image.ImageURL)
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		tx.Rollback()
+		return cerror.NewAndPrintWithTag("DIG00", err, global.FRIENDLY_MESSAGE)
+	}
+
+	return nil
+}
+
+func (im MySqlImageRepository) deleteFromDb(filter domain.ImageFilter) (*sql.Tx, error) {
+	query := sq.Delete("image")
+
+	if filter.ImageURL != "" {
+		query = query.Where(sq.Eq{"image_url": filter.ImageURL})
+	}
+
+	sql, args, err := query.ToSql()
+	if err != nil {
+		return nil, cerror.NewAndPrintWithTag("DIM00", err, global.FRIENDLY_MESSAGE)
+	}
+
+	tx, err := im.Db.Begin()
+	if err != nil {
+		return nil, cerror.NewAndPrintWithTag("DIM01", err, global.FRIENDLY_MESSAGE)
+	}
+
+	stmt, err := tx.Prepare(sql)
+	if err != nil {
+		tx.Rollback()
+		return nil, cerror.NewAndPrintWithTag("DIM02", err, global.FRIENDLY_MESSAGE)
+	}
+	defer stmt.Close()
+
+	_, err = tx.Exec(sql, args...)
+	if err != nil {
+		tx.Rollback()
+		return nil, cerror.NewAndPrintWithTag("DIM03", err, global.FRIENDLY_MESSAGE)
+	}
+
+	return tx, nil
+}
+
+func (im MySqlImageRepository) deleteFile(path string) error {
+	path = strings.ReplaceAll(path, "/", string(os.PathSeparator))
+	fullPath := global.WD + path
+	err := os.Remove(fullPath)
+	if err != nil {
+		return cerror.NewAndPrintWithTag("DIF00", err, global.FRIENDLY_MESSAGE)
+	}
+	return nil
 }
