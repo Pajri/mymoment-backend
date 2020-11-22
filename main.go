@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"log"
+	"os"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -30,10 +32,12 @@ import (
 )
 
 func main() {
-	//init config
+	global.InitEnv()
+	env := os.Getenv("PERSONAL_ENV")
+	fmt.Println("environment : " + env)
+
 	config.InitConfig()
 
-	global.InitEnv()
 	global.InitWD()
 
 	/* start init db*/
@@ -56,10 +60,12 @@ func main() {
 	/*end init db*/
 
 	/*start load env variable*/
-	err = godotenv.Load(".env")
+	envFileName := global.EnvFileName()
+	err = godotenv.Load(envFileName)
 	if err != nil {
 		log.Fatal("error loading .env file : ", err)
 	}
+
 	/*end load env variable*/
 
 	/*start init redis*/

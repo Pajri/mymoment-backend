@@ -17,7 +17,6 @@ func InitEnv() {
 	}
 
 	Env = env
-	// Env = "sta"
 }
 
 func InitWD() {
@@ -26,6 +25,14 @@ func InitWD() {
 	if err != nil {
 		log.Fatal("init wd error : ", err)
 	}
+}
+
+func EnvFileName() string {
+	if IsEnvDevelopment() {
+		return ".env"
+	}
+
+	return Env + ".env"
 }
 
 func IsEnvDevelopment() bool {

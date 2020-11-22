@@ -19,7 +19,7 @@ type AuthResponse struct {
 }
 
 func handleAuth(c *gin.Context, useCase domain.IAuthUsecase) bool {
-	if !global.IsEnvDevelopment() && !slice.Contains(excludedFromAuth, c.FullPath()) {
+	if !slice.Contains(excludedFromAuth, c.FullPath()) {
 		var accountID, email string
 
 		authArr := c.Request.Header["Authorization"]
