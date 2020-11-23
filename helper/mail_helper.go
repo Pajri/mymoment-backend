@@ -44,7 +44,7 @@ func (e Email) smtpAddress() string {
 
 func (e Email) auth() smtp.Auth {
 	return smtp.PlainAuth("",
-		config.Config.SMTP.From,
+		config.Config.SMTP.Username,
 		config.Config.SMTP.Password,
 		config.Config.SMTP.Host)
 }
