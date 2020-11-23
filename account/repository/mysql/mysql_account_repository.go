@@ -102,6 +102,7 @@ func (ur MySqlUserRepository) InsertAccount(account domain.Account) (*domain.Acc
 	if err != nil {
 		errMySQL, ok := err.(*mysql.MySQLError)
 		if ok && errMySQL.Number == 1062 {
+			tx.Rollback()
 			return nil, cerror.NewAndPrintWithTag("IA03", err, global.FRIENDLY_DUPLICATE_EMAIL)
 		}
 		tx.Rollback()
