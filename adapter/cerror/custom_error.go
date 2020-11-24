@@ -21,7 +21,7 @@ func (e Error) Error() string {
 }
 
 func (e Error) PrintErrorWithTag() {
-	fmt.Println("[%s] %s ", e.Tag, e.Err)
+	fmt.Printf("[%s] %s ", e.Tag, e.Err)
 }
 
 func (e Error) FriendlyMessageWithTag() string {

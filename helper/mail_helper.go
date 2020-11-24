@@ -3,6 +3,7 @@ package helper
 import (
 	"fmt"
 	"net/smtp"
+	"strings"
 
 	"github.com/pajri/personal-backend/adapter/cerror"
 	"github.com/pajri/personal-backend/config"
@@ -14,22 +15,27 @@ type IEMail interface {
 }
 
 type Email struct {
-	Mime string
+	Mime        string
+	ContentType string
 }
 
 func NewEmailHelper() IEMail {
 	return Email{
-		Mime: "MIME-version: 1.0;\nContent-Type: text/html; charset=\"UTF-8\";\n\n",
+		Mime:        "MIME-version: 1.0",
+		ContentType: "Content-Type: text/html; charset=UTF-8",
 	}
 }
 
 func (e Email) SendMail(to []string, subject, body string) error {
 	auth := e.auth()
+	fmt.Println(auth)
 	address := e.smtpAddress()
 	from := config.Config.SMTP.From
-	message := fmt.Sprintf("%s\n%s\n%s", subject, e.Mime, body)
+	message := e.message(from, to, subject, body)
 
+	fmt.Println("from : " + from)
 	err := smtp.SendMail(address, auth, from, to, []byte(message))
+	fmt.Println("nanananana")
 	if err != nil {
 		return cerror.NewAndPrintWithTag("SMM00", err, global.FRIENDLY_MESSAGE)
 	}
@@ -47,4 +53,14 @@ func (e Email) auth() smtp.Auth {
 		config.Config.SMTP.Username,
 		config.Config.SMTP.Password,
 		config.Config.SMTP.Host)
+}
+
+func (e Email) message(from string, to []string, subject, body string) string {
+	toList := strings.Join(to, ",")
+
+	message := fmt.Sprintf("%s\r\n%s\r\nFrom: %s\r\nTo: %s\r\nSubject: %s\r\n\r\n%s",
+		e.Mime, e.ContentType, from, toList, subject, body)
+
+	fmt.Println(message)
+	return message
 }

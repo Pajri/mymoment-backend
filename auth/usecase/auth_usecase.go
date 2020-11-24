@@ -55,7 +55,7 @@ func (uc AuthUsecase) Login(account domain.Account) (*helper.JWTWrapper, error) 
 
 	if regAccount != nil {
 		if !regAccount.IsVerified {
-			err := fmt.Errorf("email %s has not been verified")
+			err := fmt.Errorf("email %s has not been verified", regAccount.Email)
 			cerr := cerror.NewAndPrintWithTag("LGU04", err, global.FRIENDLY_EMAIL_NOT_VERIFIED)
 			return nil, cerr
 		}
