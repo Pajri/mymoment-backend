@@ -483,7 +483,7 @@ func (ah AuthHandler) SignOut(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, response)
 		return
 	}
-	fmt.Println(rtCookie.Value)
+
 	refreshToken, err = jwtHelper.ParseToken(rtCookie.Value) //parse token component into struct
 	if err != nil {
 		cerr := cerror.NewAndPrintWithTag("SOA02", err, global.FRIENDLY_INVALID_TOKEN)

@@ -28,14 +28,11 @@ func NewEmailHelper() IEMail {
 
 func (e Email) SendMail(to []string, subject, body string) error {
 	auth := e.auth()
-	fmt.Println(auth)
 	address := e.smtpAddress()
 	from := config.Config.SMTP.From
 	message := e.message(from, to, subject, body)
 
-	fmt.Println("from : " + from)
 	err := smtp.SendMail(address, auth, from, to, []byte(message))
-	fmt.Println("nanananana")
 	if err != nil {
 		return cerror.NewAndPrintWithTag("SMM00", err, global.FRIENDLY_MESSAGE)
 	}
