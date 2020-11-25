@@ -36,6 +36,7 @@ type SignUpRequest struct {
 }
 
 type SignUpResponse struct {
+	Type    string          `json:"error_type"`
 	Message []string        `json:"message"`
 	Account *domain.Account `json:"account"`
 	Profile *domain.Profile `json:"profile"`
@@ -469,6 +470,7 @@ func (ah AuthHandler) SignOut(c *gin.Context) {
 		accessToken, err = jwtHelper.ParseToken(accessTokenString) //parse token component into struct
 		if err != nil {
 			cerr := cerror.NewAndPrintWithTag("SOA00", err, global.FRIENDLY_INVALID_TOKEN)
+			response.ErrprType = "token_invalid"
 			response.Message = cerr.FriendlyMessageWithTag()
 			c.JSON(http.StatusBadRequest, response)
 			return
@@ -479,6 +481,7 @@ func (ah AuthHandler) SignOut(c *gin.Context) {
 	rtCookie, err := c.Request.Cookie("refresh_token")
 	if err != nil {
 		cerr := cerror.NewAndPrintWithTag("SOA01", err, global.FRIENDLY_INVALID_TOKEN)
+		response.ErrprType = "token_invalid"
 		response.Message = cerr.FriendlyMessageWithTag()
 		c.JSON(http.StatusBadRequest, response)
 		return
@@ -486,6 +489,7 @@ func (ah AuthHandler) SignOut(c *gin.Context) {
 
 	refreshToken, err = jwtHelper.ParseToken(rtCookie.Value) //parse token component into struct
 	if err != nil {
+		response.ErrprType = "token_invalid"
 		cerr := cerror.NewAndPrintWithTag("SOA02", err, global.FRIENDLY_INVALID_TOKEN)
 		response.Message = cerr.FriendlyMessageWithTag()
 		c.JSON(http.StatusBadRequest, response)
