@@ -17,8 +17,8 @@ import (
 
 /* #region type helper */
 type InsertPostResponse struct {
-	Message []string    `json:"message"`
-	Post    domain.Post `json:"post,omitempty"`
+	Message []string           `json:"message"`
+	Post    PostListingElement `json:"post,omitempty"`
 }
 
 type InsertPostRequest struct {
@@ -114,13 +114,19 @@ func (ph PostHandler) InsertPost(c *gin.Context) {
 
 	var storedPost *domain.Post
 	storedPost, err = ph.useCase.InsertPost(post)
+
+	//the response will be used as first element of listing
+	//so the post response uses PostListingElement type
+	var postResponse PostListingElement
+	postResponse = ph.creatPostListingElement(*storedPost)
+
 	if err != nil {
 		response.Message = []string{err.(cerror.Error).FriendlyMessageWithTag()}
 		c.JSON(http.StatusInternalServerError, response)
 		return
 	}
 
-	response = InsertPostResponse{nil, *storedPost}
+	response = InsertPostResponse{nil, postResponse}
 	c.JSON(http.StatusCreated, response)
 	return
 }
@@ -160,11 +166,7 @@ func (ph PostHandler) PostListing(c *gin.Context) {
 	var postListElements []PostListingElement
 	for _, post := range postList {
 		var new PostListingElement
-		new.PostID = post.PostID
-		new.Content = post.Content
-		new.ImageURL = post.ImageURL
-		new.Date = post.Date.Format(global.TIME_FORMAT)
-		new.HiddenDate = post.Date.Format(global.TIME_ISO8601)
+		new = ph.creatPostListingElement(post)
 
 		postListElements = append(postListElements, new)
 	}
@@ -215,4 +217,15 @@ func (ph PostHandler) DeletePost(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusNoContent, nil)
+}
+
+func (ph PostHandler) creatPostListingElement(post domain.Post) PostListingElement {
+	var postListingElement PostListingElement
+	postListingElement.PostID = post.PostID
+	postListingElement.Content = post.Content
+	postListingElement.ImageURL = post.ImageURL
+	postListingElement.Date = post.Date.Format(global.TIME_FORMAT)
+	postListingElement.HiddenDate = post.Date.Format(global.TIME_ISO8601)
+
+	return postListingElement
 }
