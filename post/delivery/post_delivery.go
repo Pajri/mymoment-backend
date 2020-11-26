@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-playground/validator"
+	validator "github.com/go-playground/validator/v10"
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/pajri/personal-backend/adapter/cerror"
 	"github.com/pajri/personal-backend/domain"
@@ -192,7 +192,7 @@ func (ph PostHandler) DeletePost(c *gin.Context) {
 			for _, elem := range valError {
 				fieldName := elem.Field()
 				field, _ := reflect.TypeOf(&request).Elem().FieldByName(fieldName)
-				jsonField, _ := field.Tag.Lookup("form")
+				jsonField, _ := field.Tag.Lookup("json")
 
 				switch elem.Tag() {
 				case "required":

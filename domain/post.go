@@ -15,7 +15,7 @@ type Post struct {
 }
 
 type IPostRepository interface {
-	InsertPost(post Post) error
+	InsertPost(post Post) (*Post, error)
 	DeletePost(postID, accountID string) error
 	PostList(filter PostFilter) ([]Post, error)
 	GetPost(filter PostFilter) (*Post, error)

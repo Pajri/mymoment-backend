@@ -22,12 +22,12 @@ func NewPostUseCase(postRepository domain.IPostRepository,
 
 func (uc PostUsecase) InsertPost(post domain.Post) (*domain.Post, error) {
 	post.Date = time.Now()
-	err := uc.postRepo.InsertPost(post)
+	newPost, err := uc.postRepo.InsertPost(post)
 	if err != nil {
 		return nil, err
 	}
 
-	return &post, nil
+	return newPost, nil
 }
 
 func (uc PostUsecase) PostListing(accountID string, limit uint64, date time.Time) ([]domain.Post, error) {

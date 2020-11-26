@@ -23,7 +23,7 @@ type MySqlPostRepository struct {
 	Db *sql.DB
 }
 
-func (ur MySqlPostRepository) InsertPost(post domain.Post) error {
+func (ur MySqlPostRepository) InsertPost(post domain.Post) (*domain.Post, error) {
 	if post.PostID == "" {
 		post.PostID = util.GenerateUUID()
 	}
@@ -34,36 +34,36 @@ func (ur MySqlPostRepository) InsertPost(post domain.Post) error {
 
 	sql, args, err := query.ToSql()
 	if err != nil {
-		return cerror.NewAndPrintWithTag("IP00", err, global.FRIENDLY_MESSAGE)
+		return nil, cerror.NewAndPrintWithTag("IP00", err, global.FRIENDLY_MESSAGE)
 	}
 	/*end create query*/
 
 	/*start insert execution*/
 	tx, err := ur.Db.Begin()
 	if err != nil {
-		return cerror.NewAndPrintWithTag("IP01", err, global.FRIENDLY_MESSAGE)
+		return nil, cerror.NewAndPrintWithTag("IP01", err, global.FRIENDLY_MESSAGE)
 	}
 
 	stmt, err := tx.Prepare(sql)
 	if err != nil {
 		tx.Rollback()
-		return cerror.NewAndPrintWithTag("IP02", err, global.FRIENDLY_MESSAGE)
+		return nil, cerror.NewAndPrintWithTag("IP02", err, global.FRIENDLY_MESSAGE)
 	}
 	defer stmt.Close()
 
 	_, err = tx.Exec(sql, args...)
 	if err != nil {
 		tx.Rollback()
-		return cerror.NewAndPrintWithTag("IP03", err, global.FRIENDLY_MESSAGE)
+		return nil, cerror.NewAndPrintWithTag("IP03", err, global.FRIENDLY_MESSAGE)
 	}
 
 	err = tx.Commit()
 	if err != nil {
 		tx.Rollback()
-		return cerror.NewAndPrintWithTag("IP04", err, global.FRIENDLY_MESSAGE)
+		return nil, cerror.NewAndPrintWithTag("IP04", err, global.FRIENDLY_MESSAGE)
 	}
 
-	return nil
+	return &post, nil
 	/*end insert execution*/
 }
 
