@@ -1,0 +1,29 @@
+{
+    "DB":{
+        "Host": "host",
+        "Port": 9999,
+        "Username": "username",
+        "Password": "password",
+        "DbName": "dbname"
+    },
+    "SMTP": {
+        "From": "from",
+        "Host": "host",
+        "Port": 9999,
+        "Username": "username",
+        "Password": "password"
+    },
+    "Host": "host",
+    "FEHost": "fehost",
+    "EmailVerification": {
+        "Subject": "subject"
+    },
+    "ResetPassword":{
+        "Subject": "subject"
+    },
+    "Redis": {
+        "Host": "host",
+        "Port": 9999,
+        "Password": "password"
+    }
+}
